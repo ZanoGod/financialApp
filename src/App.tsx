@@ -1,42 +1,67 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  signInWithCustomToken, 
+  signInAnonymously, 
+  onAuthStateChanged
+} from 'firebase/auth';
+import type {
+  User as FirebaseAuthUser,
+  Auth
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  onSnapshot
+} from 'firebase/firestore';
+import type { Firestore } from 'firebase/firestore';
 import { 
   Home, 
+  CreditCard, 
   PieChart, 
-  Wallet, 
-  ArrowRightLeft, 
   Plus, 
+  X, 
+  History, 
   Landmark, 
-  Banknote, 
-  CreditCard,
-  User,
+  Wallet, 
+  Banknote,
   TrendingUp,
   TrendingDown,
-  X,
-  History,
-  Calendar,
-  CheckCircle2
+  PlusCircle,
+  AlertTriangle
 } from 'lucide-react';
 
-const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount);
-};
+interface AccountData {
+  id: number;
+  name: string;
+  balance: number;
+  type: string;
+  color: string;
+  bg: string;
+}
 
-// --- Mock Data ---
-const initialAccounts = [
-  { id: 1, name: 'Main Checking', balance: 2450.00, type: 'bank', color: 'bg-blue-600' },
-  { id: 2, name: 'Savings', balance: 8200.00, type: 'bank', color: 'bg-indigo-600' },
-  { id: 3, name: 'Cash Wallet', balance: 150.00, type: 'cash', color: 'bg-green-500' },
-  { id: 4, name: 'Credit Card', balance: -450.00, type: 'credit', color: 'bg-red-500' },
+interface TransactionData {
+  id: number;
+  amount: number;
+  type: string;
+  category: string;
+  account: string;
+  date: string;
+  desc: string;
+}
+
+// Removed 'icon' parameter from data state so Firestore doesn't crash on non-serializable objects
+const initialAccounts: AccountData[] = [
+  { id: 1, name: 'Main Checking', balance: 2500, type: 'bank', color: 'text-blue-500', bg: 'bg-blue-50' },
+  { id: 2, name: 'Cash Wallet', balance: 350, type: 'cash', color: 'text-green-500', bg: 'bg-green-50' },
+  { id: 3, name: 'PayPal', balance: 150, type: 'ewallet', color: 'text-indigo-500', bg: 'bg-indigo-50' }
 ];
 
-const initialTransactions = [
-  { id: 1, desc: 'Grocery Store', amount: -85.50, category: 'Food', date: 'Today', account: 'Main Checking', type: 'expense' },
-  { id: 2, desc: 'Salary Deposit', amount: 3200.00, category: 'Income', date: 'Yesterday', account: 'Main Checking', type: 'income' },
-  { id: 3, desc: 'Coffee Shop', amount: -4.50, category: 'Food', date: 'Yesterday', account: 'Cash Wallet', type: 'expense' },
-  { id: 4, desc: 'Transfer to Savings', amount: -200.00, category: 'Transfer', date: '12 Oct', account: 'Main Checking', type: 'transfer' },
+const initialTransactions: TransactionData[] = [
+  { id: 101, amount: 50, type: 'expense', category: 'Food', account: 'Main Checking', date: new Date().toISOString().split('T')[0], desc: 'Groceries' },
+  { id: 102, amount: 1500, type: 'income', category: 'Salary', account: 'Main Checking', date: new Date().toISOString().split('T')[0], desc: 'Paycheck' }
 ];
 
 const mockLoans = [
@@ -44,415 +69,697 @@ const mockLoans = [
   { id: 2, name: 'Bob (Owes Me)', total: 100, remaining: 100, type: 'lent' }
 ];
 
-const TopBar = ({ title }) => (
-  <div className="bg-white/80 backdrop-blur-md sticky top-0 z-10 px-6 py-4 flex justify-between items-center border-b border-gray-100">
-    <h1 className="text-xl font-bold text-gray-800">{title}</h1>
-    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-      <User size={18} className="text-gray-600" />
+const getGlobalValue = (key: string): string | undefined => {
+  if (typeof window !== 'undefined') {
+    return (window as unknown as Record<string, unknown>)[key] as string | undefined;
+  }
+  return undefined;
+};
+
+// ---> YOUR FIREBASE CONFIGURATION <---
+const firebaseConfig = {
+  apiKey: "AIzaSyADKcHmYUjmo7-PEd1P9Rv6sGblbeeduRc",
+  authDomain: "finance-app-221bb.firebaseapp.com",
+  projectId: "finance-app-221bb",
+  storageBucket: "finance-app-221bb.firebasestorage.app",
+  messagingSenderId: "838412317776",
+  appId: "1:838412317776:web:f12144aee0d68aba428d55",
+  measurementId: "G-F268X22YTR"
+};
+
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+let isFirebaseConfigured = false;
+let usingCanvasFirebase = false;
+
+// Check if you've provided valid custom API keys
+const hasUserConfig = firebaseConfig.apiKey && firebaseConfig.apiKey.startsWith("AIzaSy");
+const activeConfigStr = getGlobalValue('__firebase_config');
+let finalConfig = firebaseConfig;
+
+// Ensure your custom configuration overrides the Canvas defaults
+if (hasUserConfig) {
+  finalConfig = firebaseConfig;
+  isFirebaseConfigured = true;
+} else if (activeConfigStr) {
+  try {
+    finalConfig = JSON.parse(activeConfigStr);
+    isFirebaseConfigured = true;
+    usingCanvasFirebase = true;
+  } catch (error) {
+    console.error("Failed to parse system Firebase configuration", error);
+  }
+}
+
+if (isFirebaseConfigured) {
+  try {
+    const appInstance = initializeApp(finalConfig);
+    auth = getAuth(appInstance);
+    db = getFirestore(appInstance);
+  } catch (error) {
+    console.error("Initialization error, running locally:", error);
+    isFirebaseConfigured = false;
+  }
+}
+
+const myAppId = getGlobalValue('__app_id') || 'my-personal-finance-app-v1';
+
+// Safety wrapper to ensure functions/icons are stripped before saving
+const sanitizeAccounts = (accs: unknown[]) => (accs as Record<string, unknown>[]).map(acc => {
+  const clean = { ...acc };
+  delete clean.icon; 
+  return clean;
+});
+
+const TopBar = ({ title, syncStatus, isError }: { title: string, syncStatus: string, isError: boolean }) => (
+  <div className="bg-slate-50 text-slate-900 p-5 sticky top-0 z-10 flex flex-col justify-between items-start gap-2">
+    <div className="flex justify-between items-center w-full mt-2">
+      <div>
+        <h1 className="text-2xl font-extrabold tracking-tight">{title === 'My Dashboard' ? 'Overview' : title}</h1>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold shadow-sm ${
+          isError ? 'bg-red-100 text-red-600 border border-red-200' : 
+          syncStatus === 'Cloud Synced' ? 'bg-green-100 text-green-700 border border-green-200' : 
+          'bg-amber-100 text-amber-700 border border-amber-200'
+        }`}>
+          {!isError && <span className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'Cloud Synced' ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`}></span>}
+          {isError && <AlertTriangle size={12} className="text-red-500" />}
+          {syncStatus}
+        </div>
+      </div>
     </div>
   </div>
 );
 
-// --- Views ---
+const BottomNav = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (tab: string) => void }) => (
+  <div className="bg-white border-t border-slate-200 fixed bottom-0 w-full max-w-md flex justify-between items-center px-6 py-3 z-20 pb-safe shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
+    <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center transition-all ${activeTab === 'home' ? 'text-blue-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}>
+      <Home size={22} className={activeTab === 'home' ? 'stroke-[2.5px]' : ''} />
+      <span className="text-[10px] mt-1 font-semibold">Home</span>
+    </button>
+    <button onClick={() => setActiveTab('accounts')} className={`flex flex-col items-center transition-all ${activeTab === 'accounts' ? 'text-blue-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}>
+      <CreditCard size={22} className={activeTab === 'accounts' ? 'stroke-[2.5px]' : ''} />
+      <span className="text-[10px] mt-1 font-semibold">Accounts</span>
+    </button>
+    <div className="w-12"></div>
+    <button onClick={() => setActiveTab('history')} className={`flex flex-col items-center transition-all ${activeTab === 'history' ? 'text-blue-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}>
+      <History size={22} className={activeTab === 'history' ? 'stroke-[2.5px]' : ''} />
+      <span className="text-[10px] mt-1 font-semibold">History</span>
+    </button>
+    <button onClick={() => setActiveTab('budgets')} className={`flex flex-col items-center transition-all ${activeTab === 'budgets' ? 'text-blue-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}>
+      <PieChart size={22} className={activeTab === 'budgets' ? 'stroke-[2.5px]' : ''} />
+      <span className="text-[10px] mt-1 font-semibold">Loans</span>
+    </button>
+  </div>
+);
 
-const DashboardView = ({ accounts, transactions }) => {
-  const totalBalance = accounts.reduce((acc, curr) => acc + curr.balance, 0);
-
-  return (
-    <div className="pb-24 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <TopBar title="Overview" />
-      
-      {/* Total Balance Card */}
-      <div className="px-6 py-6">
-        <div className="bg-gradient-to-br from-blue-600 to-indigo-800 rounded-3xl p-6 text-white shadow-xl shadow-blue-900/20 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-          <p className="text-blue-100 font-medium mb-1">Total Net Balance</p>
-          <h2 className="text-4xl font-bold tracking-tight mb-6">{formatCurrency(totalBalance)}</h2>
-          
-          <div className="flex gap-4">
-            <div className="bg-white/20 rounded-2xl p-3 flex-1 backdrop-blur-sm border border-white/10">
-              <div className="flex items-center gap-2 text-sm text-blue-50 mb-1">
-                <TrendingUp size={16} className="text-green-300"/> Income
-              </div>
-              <p className="font-semibold">+ $3,200.00</p>
-            </div>
-            <div className="bg-white/20 rounded-2xl p-3 flex-1 backdrop-blur-sm border border-white/10">
-              <div className="flex items-center gap-2 text-sm text-blue-50 mb-1">
-                <TrendingDown size={16} className="text-red-300"/> Expenses
-              </div>
-              <p className="font-semibold">- $850.00</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Accounts Scroll */}
-      <div className="px-6 mb-6">
-        <div className="flex justify-between items-end mb-4">
-          <h3 className="text-lg font-bold text-gray-800">My Accounts</h3>
-          <button className="text-sm text-blue-600 font-medium hover:underline">See All</button>
-        </div>
-        <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar">
-          {accounts.map((account) => (
-            <div key={account.id} className="min-w-[140px] bg-white border border-gray-100 rounded-2xl p-4 shadow-sm snap-start shrink-0">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-3 text-white ${account.color}`}>
-                {account.type === 'bank' ? <Landmark size={20} /> : account.type === 'cash' ? <Banknote size={20} /> : <CreditCard size={20} />}
-              </div>
-              <p className="text-xs text-gray-500 truncate">{account.name}</p>
-              <p className="font-bold text-gray-800">{formatCurrency(account.balance)}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Recent Transactions */}
-      <div className="px-6">
-        <div className="flex justify-between items-end mb-4">
-          <h3 className="text-lg font-bold text-gray-800">Recent Transactions</h3>
-        </div>
-        <div className="bg-white border border-gray-100 rounded-3xl p-2 shadow-sm">
-          {transactions.slice(0, 4).map((tx, index) => (
-            <div key={tx.id} className={`flex items-center justify-between p-4 ${index !== 3 ? 'border-b border-gray-50' : ''}`}>
-              <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  tx.type === 'income' ? 'bg-green-100 text-green-600' : 
-                  tx.type === 'expense' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'
-                }`}>
-                  {tx.type === 'income' ? <TrendingUp size={18} /> : 
-                   tx.type === 'expense' ? <TrendingDown size={18} /> : <ArrowRightLeft size={18} />}
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-800">{tx.desc}</p>
-                  <p className="text-xs text-gray-500">{tx.account}</p>
-                </div>
-              </div>
-              <p className={`font-bold ${tx.amount > 0 ? 'text-green-600' : 'text-gray-800'}`}>
-                {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const AccountsView = ({ accounts }) => {
-  return (
-    <div className="pb-24 animate-in fade-in duration-300">
-      <TopBar title="Accounts & Balances" />
-      
-      <div className="p-6 space-y-6">
-        {/* Bank Accounts Section */}
-        <section>
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-            <Landmark size={16} /> Bank Accounts
-          </h3>
-          <div className="space-y-3">
-            {accounts.filter(a => a.type === 'bank').map(account => (
-              <div key={account.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between hover:border-blue-200 transition-colors cursor-pointer">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white ${account.color}`}>
-                    <Landmark size={20} />
-                  </div>
-                  <div>
-                    <p className="font-bold text-gray-800">{account.name}</p>
-                    <p className="text-xs text-gray-500">Virtual Ledger</p>
-                  </div>
-                </div>
-                <p className="font-bold text-lg">{formatCurrency(account.balance)}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Cash & Wallets Section */}
-        <section>
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2 mt-8">
-            <Wallet size={16} /> Cash & E-Wallets
-          </h3>
-          <div className="space-y-3">
-            {accounts.filter(a => a.type !== 'bank').map(account => (
-              <div key={account.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between hover:border-blue-200 transition-colors cursor-pointer">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white ${account.color}`}>
-                    {account.type === 'cash' ? <Banknote size={20} /> : <CreditCard size={20} />}
-                  </div>
-                  <div>
-                    <p className="font-bold text-gray-800">{account.name}</p>
-                    <p className="text-xs text-gray-500">Manual Entry</p>
-                  </div>
-                </div>
-                <p className={`font-bold text-lg ${account.balance < 0 ? 'text-red-500' : ''}`}>
-                  {formatCurrency(account.balance)}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-    </div>
-  );
-};
-
-const HistoryView = ({ transactions }) => {
-  return (
-    <div className="pb-24 animate-in fade-in duration-300">
-      <TopBar title="Transaction History" />
-      <div className="p-6">
-        <div className="space-y-3">
-          {transactions.map((tx) => (
-            <div key={tx.id} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow cursor-pointer">
-              <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  tx.type === 'income' ? 'bg-green-100 text-green-600' : 
-                  tx.type === 'expense' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
-                }`}>
-                  {tx.type === 'income' ? <TrendingUp size={24} /> : 
-                   tx.type === 'expense' ? <TrendingDown size={24} /> : <ArrowRightLeft size={24} />}
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-800">{tx.desc}</p>
-                  <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
-                    <span className="flex items-center gap-1"><Calendar size={12}/> {tx.date}</span>
-                    <span>•</span>
-                    <span>{tx.account}</span>
-                  </div>
-                </div>
-              </div>
-              <p className={`font-bold ${tx.amount > 0 ? 'text-green-600' : 'text-gray-800'}`}>
-                {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const BudgetsView = () => {
-  return (
-    <div className="pb-24 animate-in fade-in duration-300">
-      <TopBar title="Budgets & Loans" />
-      <div className="p-6 space-y-6">
-        {/* Budgets Progress */}
-        <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
-          <h3 className="font-bold text-gray-800 mb-4">Monthly Spending</h3>
-          <div className="w-full bg-gray-100 rounded-full h-3 mb-2 overflow-hidden">
-            <div className="bg-blue-600 h-3 rounded-full w-[75%]"></div>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="font-semibold text-gray-800">$1,500 Spent</span>
-            <span className="text-gray-500">$2,000 Budget</span>
-          </div>
-        </div>
-
-        {/* Loans & Debts */}
-        <section>
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4 mt-4">Active Loans & Debts</h3>
-          <div className="space-y-4">
-            {mockLoans.map(loan => (
-              <div key={loan.id} className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="font-bold text-gray-800">{loan.name}</span>
-                  <span className={`font-bold ${loan.type === 'borrowed' ? 'text-red-500' : 'text-green-500'}`}>
-                    {loan.type === 'borrowed' ? '-' : '+'}{formatCurrency(loan.remaining)}
-                  </span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2 mb-2 overflow-hidden">
-                  <div className={`h-2 rounded-full ${loan.type === 'borrowed' ? 'bg-red-400 w-[60%]' : 'bg-green-400 w-[0%]'}`}></div>
-                </div>
-                <div className="flex justify-between mt-1 text-xs text-gray-400">
-                  <span>Paid: {formatCurrency(loan.total - loan.remaining)}</span>
-                  <span>Total: {formatCurrency(loan.total)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-    </div>
-  );
-};
-
-const AddTransactionModal = ({ isOpen, onClose, onAdd, accounts }) => {
+const AddTransactionModal = ({ 
+  isOpen, 
+  onClose, 
+  onAdd, 
+  accounts 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onAdd: (tx: { amount: number; type: string; desc: string; account: string; date: string; category: string }) => void; 
+  accounts: AccountData[]; 
+}) => {
   const [type, setType] = useState('expense');
   const [amount, setAmount] = useState('');
   const [desc, setDesc] = useState('');
-  const [accountName, setAccountName] = useState(accounts[0]?.name || '');
+  const [account, setAccount] = useState('');
 
   if (!isOpen) return null;
 
-  const handleSave = () => {
-    if (!amount || !desc) return;
-    const numAmount = parseFloat(amount);
-    const finalAmount = type === 'expense' ? -Math.abs(numAmount) : Math.abs(numAmount);
-     
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!amount || isNaN(parseFloat(amount))) return;
+
+    const finalAccount = account || (accounts.length > 0 ? accounts[0].name : '');
+
     onAdd({
+      amount: parseFloat(amount),
+      type,
       desc,
-      amount: finalAmount,
-      category: type === 'expense' ? 'Misc' : 'Income',
-      date: 'Just Now',
-      account: accountName,
-      type
+      account: finalAccount,
+      date: new Date().toISOString().split('T')[0],
+      category: type === 'expense' ? 'General' : 'Income'
     });
     
     setAmount('');
     setDesc('');
+    setAccount('');
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-      <div className="bg-white w-full max-w-md rounded-t-3xl p-6 animate-in slide-in-from-bottom-full duration-300" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end justify-center sm:items-center p-0 sm:p-4">
+      <div className="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-2xl p-6 shadow-2xl animate-slide-up border border-slate-100">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-800">New Transaction</h2>
-          <button onClick={onClose} className="p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200 transition-colors"><X size={20}/></button>
-        </div>
-        
-        {/* Type Selector Tabs */}
-        <div className="flex bg-gray-100 p-1 rounded-2xl mb-6">
-          <button onClick={() => setType('expense')} className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${type === 'expense' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-500'}`}>Expense</button>
-          <button onClick={() => setType('income')} className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${type === 'income' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500'}`}>Income</button>
+          <h2 className="text-xl font-bold text-slate-900">New Transaction</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 transition rounded-full p-1.5">
+            <X size={18} />
+          </button>
         </div>
 
-        {/* Input Fields */}
-        <div className="space-y-4 mb-8">
+        <div className="flex gap-2 mb-6 bg-slate-100 p-1 rounded-xl">
+          <button 
+            type="button"
+            className={`flex-1 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wide transition-all ${type === 'expense' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500'}`}
+            onClick={() => setType('expense')}
+          >
+            Expense
+          </button>
+          <button 
+            type="button"
+            className={`flex-1 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wide transition-all ${type === 'income' ? 'bg-white text-green-600 shadow-sm' : 'text-slate-500'}`}
+            onClick={() => setType('income')}
+          >
+            Income
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">Amount</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Amount</label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">$</span>
-              <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 pl-10 pr-4 text-2xl font-bold text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all" />
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl font-medium">$</span>
+              <input 
+                type="number" 
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-9 pr-4 text-2xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                placeholder="0.00"
+                step="0.01"
+                required
+              />
             </div>
           </div>
-          
+
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">Description</label>
-            <input type="text" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="E.g., Groceries, Salary, Coffee" className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-3 px-4 font-medium text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all" />
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Description / Notes</label>
+            <input 
+              type="text" 
+              value={desc}
+              onChange={(e) => setDesc(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm"
+              placeholder="e.g. Rice, electric bill, dinner"
+              required
+            />
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">Account</label>
-            <select value={accountName} onChange={(e) => setAccountName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-3 px-4 font-medium text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all appearance-none cursor-pointer">
-              {accounts.map(acc => (
-                <option key={acc.id} value={acc.name}>{acc.name} (Current: {formatCurrency(acc.balance)})</option>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Bank or Wallet Account</label>
+            <select 
+              value={account || (accounts.length > 0 ? accounts[0].name : '')}
+              onChange={(e) => setAccount(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm"
+            >
+              {accounts.map((acc: AccountData) => (
+                <option key={acc.id} value={acc.name}>
+                  {acc.name} (${acc.balance.toLocaleString()})
+                </option>
               ))}
             </select>
           </div>
-        </div>
 
-        <button onClick={handleSave} className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-blue-600/30">
-          <CheckCircle2 size={20} /> Save Transaction
-        </button>
+          <button 
+            type="submit" 
+            className={`w-full py-3.5 rounded-xl text-white font-bold text-sm tracking-wide mt-4 shadow-lg transition-all active:scale-95 ${type === 'expense' ? 'bg-red-500 hover:bg-red-600 shadow-red-500/20' : 'bg-green-500 hover:bg-green-600 shadow-green-500/20'}`}
+          >
+            Log This {type === 'expense' ? 'Expense' : 'Income'}
+          </button>
+        </form>
       </div>
     </div>
   );
 };
 
-const AddTransactionFab = ({ onClick, isVisible }) => (
-  <button 
-    onClick={onClick} 
-    className={`absolute bottom-6 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-blue-600/40 hover:bg-blue-700 active:scale-95 transition-all duration-300 z-50 border-4 border-gray-50 ${
-      isVisible ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
-    }`}
-  >
-    <Plus size={28} />
-  </button>
-);
-
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
-  const [accounts, setAccounts] = useState(initialAccounts);
-  const [transactions, setTransactions] = useState(initialTransactions);
+  const [accounts, setAccounts] = useState<AccountData[]>(initialAccounts);
+  const [transactions, setTransactions] = useState<TransactionData[]>(initialTransactions);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  
+  const [user, setUser] = useState<FirebaseAuthUser | null>(null);
+  const [syncStatus, setSyncStatus] = useState(!isFirebaseConfigured ? 'Local Sandbox' : 'Connecting...');
+  const [isError, setIsError] = useState(false);
 
-  const handleAddTransaction = (newTx) => {
-    // 1. Add new transaction to the top of the history list
-    const transactionWithId = { ...newTx, id: Date.now() };
-    setTransactions([transactionWithId, ...transactions]);
+  const [isNewAccountModalOpen, setIsNewAccountModalOpen] = useState(false);
+  const [newAccName, setNewAccName] = useState('');
+  const [newAccType, setNewAccType] = useState('bank');
+  const [newAccBalance, setNewAccBalance] = useState('');
 
-    // 2. Instantly update the affected Virtual Bank/Wallet Account Balance
-    setAccounts(accounts.map(acc => {
+  // 1. Authentication Check
+  useEffect(() => {
+    if (!isFirebaseConfigured || !auth) {
+      return;
+    }
+
+    const initAuth = async () => {
+      try {
+        if (usingCanvasFirebase) {
+          const initialAuthToken = getGlobalValue('__initial_auth_token');
+          if (initialAuthToken && auth) {
+            await signInWithCustomToken(auth, initialAuthToken);
+          } else if (auth) {
+            await signInAnonymously(auth);
+          }
+        } else {
+          // If you pasted your config, we exclusively use your Anon Auth setup!
+          if (auth) {
+            await signInAnonymously(auth);
+          }
+        }
+      } catch (error: unknown) {
+        console.error("Auth error:", error);
+        const err = error as { code?: string };
+        setSyncStatus(err.code === 'auth/operation-not-allowed' ? 'Enable Anonymous Login!' : 'Auth Failed');
+        setIsError(true);
+      }
+    };
+    initAuth();
+    
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        setSyncStatus(prevStatus => {
+          if (prevStatus === 'Enable Anonymous Login!' || prevStatus === 'Auth Failed') return prevStatus;
+          return 'Cloud Synced';
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 2. Database Sync Check (UPDATED FOR SHARED CROSS-DEVICE SYNC)
+  useEffect(() => {
+    if (!isFirebaseConfigured || !user || !db) return;
+    
+    // Changing from private user path to a shared "public" ledger path
+    const stateRef = doc(db, 'artifacts', myAppId, 'public', 'data', 'ledgers', 'finance_state');
+    
+    const unsubscribe = onSnapshot(stateRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.accounts) setAccounts(data.accounts as AccountData[]);
+        if (data.transactions) setTransactions(data.transactions as TransactionData[]);
+      } else {
+        if (db) {
+          // Send sanitized array
+          const safeAccounts = sanitizeAccounts(initialAccounts);
+          setDoc(stateRef, { accounts: safeAccounts, transactions: initialTransactions })
+            .catch((err: unknown) => {
+              console.error(err);
+              setSyncStatus('Rules Denied (Check DB Rules)');
+              setIsError(true);
+            });
+        }
+      }
+    }, (error: unknown) => {
+      console.error("Firestore error:", error);
+      setSyncStatus('DB Error (Check Rules)');
+      setIsError(true);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleAddTransaction = async (newTx: { amount: number; type: string; desc: string; account: string; date: string; category: string }) => {
+    const transactionWithId: TransactionData = { ...newTx, id: Date.now() };
+    const updatedTransactions = [transactionWithId, ...transactions];
+
+    const updatedAccounts = accounts.map(acc => {
       if (acc.name === newTx.account) {
-        return { ...acc, balance: acc.balance + newTx.amount };
+        const balanceModifier = newTx.type === 'expense' ? -newTx.amount : newTx.amount;
+        return { ...acc, balance: acc.balance + balanceModifier };
       }
       return acc;
-    }));
+    });
+
+    setTransactions(updatedTransactions);
+    setAccounts(updatedAccounts);
+
+    if (isFirebaseConfigured && user && db && !isError) {
+      // Changed to shared "public" ledger path
+      const stateRef = doc(db, 'artifacts', myAppId, 'public', 'data', 'ledgers', 'finance_state');
+      try {
+        const safeAccounts = sanitizeAccounts(updatedAccounts);
+        await setDoc(stateRef, {
+          accounts: safeAccounts,
+          transactions: updatedTransactions
+        });
+        setSyncStatus('Cloud Synced');
+        setIsError(false);
+      } catch (error: unknown) {
+        console.error("Cloud persistence failure:", error);
+        setSyncStatus('Failed to Save');
+        setIsError(true);
+      }
+    }
   };
+
+  const handleAddAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAccName || !newAccBalance || isNaN(parseFloat(newAccBalance))) return;
+
+    let color = 'text-blue-500';
+    let bg = 'bg-blue-50';
+
+    if (newAccType === 'cash') {
+      color = 'text-green-500'; bg = 'bg-green-50';
+    } else if (newAccType === 'ewallet') {
+      color = 'text-indigo-500'; bg = 'bg-indigo-50';
+    }
+
+    const createdAccount: AccountData = {
+      id: Date.now(), name: newAccName, balance: parseFloat(newAccBalance), type: newAccType, color, bg
+    };
+
+    const updatedAccounts = [...accounts, createdAccount];
+    setAccounts(updatedAccounts);
+
+    if (isFirebaseConfigured && user && db && !isError) {
+      // Changed to shared "public" ledger path
+      const stateRef = doc(db, 'artifacts', myAppId, 'public', 'data', 'ledgers', 'finance_state');
+      try {
+        const safeAccounts = sanitizeAccounts(updatedAccounts);
+        await setDoc(stateRef, { accounts: safeAccounts, transactions: transactions });
+      } catch (error: unknown) {
+        console.error("Cloud save failure:", error);
+      }
+    }
+
+    setNewAccName(''); setNewAccBalance(''); setIsNewAccountModalOpen(false);
+  };
+
+  const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0);
+  const calculatedIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+  const calculatedExpense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
 
   const renderView = () => {
     switch (activeTab) {
-      case 'home': return <DashboardView accounts={accounts} transactions={transactions} />;
-      case 'accounts': return <AccountsView accounts={accounts} />;
-      case 'history': return <HistoryView transactions={transactions} />;
-      case 'budgets': return <BudgetsView />;
-      default: return <DashboardView accounts={accounts} transactions={transactions} />;
+      case 'home':
+        return (
+          <div className="space-y-8">
+            {/* Main Blue Gradient Card */}
+            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-[2rem] p-6 text-white shadow-lg shadow-blue-500/30 relative overflow-hidden mx-1">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
+              <p className="text-blue-100 text-sm font-semibold tracking-wide mb-1">Total Net Balance</p>
+              <h2 className="text-4xl font-extrabold tracking-tight mb-8">
+                ${totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h2>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                  <div className="flex items-center gap-1.5 mb-1 text-blue-100 text-[11px] uppercase font-bold tracking-wider">
+                    <TrendingUp size={14} className="text-green-300" /> Income
+                  </div>
+                  <p className="text-xl font-bold text-white">+ ${calculatedIncome.toLocaleString()}</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                  <div className="flex items-center gap-1.5 mb-1 text-blue-100 text-[11px] uppercase font-bold tracking-wider">
+                    <TrendingDown size={14} className="text-red-300" /> Expenses
+                  </div>
+                  <p className="text-xl font-bold text-white">- ${calculatedExpense.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+
+            {isError && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex gap-3 items-start mx-1">
+                <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+                <div className="text-xs text-red-800 space-y-1">
+                  <p className="font-bold">Sync Error: {syncStatus}</p>
+                  <p className="text-red-700/90 leading-relaxed">Ensure you enabled Anonymous Login in the Auth tab.</p>
+                </div>
+              </div>
+            )}
+
+            {/* My Accounts Horizontal Scroll */}
+            <div>
+              <div className="flex justify-between items-end mb-4 px-1">
+                <h3 className="text-lg font-bold text-slate-900">My Accounts</h3>
+                <button onClick={() => setActiveTab('accounts')} className="text-sm text-blue-600 font-semibold hover:underline">
+                  See All
+                </button>
+              </div>
+              
+              <div className="flex gap-4 overflow-x-auto pb-4 pt-1 px-1 snap-x hide-scrollbar">
+                {accounts.map(acc => {
+                  let IconComponent = Landmark;
+                  if (acc.type === 'cash') IconComponent = Banknote;
+                  if (acc.type === 'ewallet') IconComponent = Wallet;
+
+                  return (
+                    <div 
+                      key={acc.id} 
+                      className="min-w-[140px] bg-white p-5 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.04)] border border-slate-100 snap-start shrink-0 flex flex-col justify-between"
+                    >
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${acc.bg || 'bg-blue-50'} ${acc.color || 'text-blue-500'}`}>
+                        <IconComponent size={22} />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 font-medium mb-1 truncate">{acc.name}</p>
+                        <p className="text-lg font-bold text-slate-900">${acc.balance.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Recent Transactions */}
+            <div className="px-1">
+              <div className="flex justify-between items-end mb-4">
+                <h3 className="text-lg font-bold text-slate-900">Recent Transactions</h3>
+                <button onClick={() => setActiveTab('history')} className="text-sm text-blue-600 font-semibold hover:underline">
+                  See All
+                </button>
+              </div>
+              <div className="bg-white rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.04)] border border-slate-100 overflow-hidden">
+                {transactions.slice(0, 4).map((tx, index) => (
+                  <div key={tx.id} className={`p-4 flex items-center justify-between hover:bg-slate-50/50 transition duration-150 ${index !== 0 ? 'border-t border-slate-50' : ''}`}>
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${tx.type === 'expense' ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}>
+                        {tx.type === 'expense' ? <TrendingDown size={18} /> : <TrendingUp size={18} />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-slate-950 truncate">{tx.desc}</p>
+                        <p className="text-xs text-slate-400 truncate mt-0.5">{tx.account}</p>
+                      </div>
+                    </div>
+                    <span className={`font-bold text-sm shrink-0 pl-2 ${tx.type === 'expense' ? 'text-slate-900' : 'text-green-600'}`}>
+                      {tx.type === 'expense' ? '-' : '+'}${tx.amount.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+                
+                {transactions.length === 0 && (
+                  <div className="p-8 text-center text-slate-400 text-sm">
+                    No transactions entered yet.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 'accounts':
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">My Accounts</h2>
+                <p className="text-slate-500 text-xs mt-0.5">Manage bank balances & wallets</p>
+              </div>
+              <button 
+                onClick={() => setIsNewAccountModalOpen(true)}
+                className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-sm shadow-blue-500/10 transition-all active:scale-95"
+              >
+                <PlusCircle size={14} />
+                Add Account
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              {accounts.map(acc => {
+                let IconComponent = Landmark;
+                if (acc.type === 'cash') IconComponent = Banknote;
+                if (acc.type === 'ewallet') IconComponent = Wallet;
+
+                return (
+                  <div 
+                    key={acc.id} 
+                    className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between hover:border-slate-200 transition-all cursor-default"
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${acc.bg || 'bg-slate-50'} ${acc.color || 'text-slate-600'}`}>
+                        <IconComponent size={22} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-900 truncate">{acc.name}</p>
+                        <p className="text-[10px] text-slate-400 capitalize font-medium tracking-wide">{acc.type} account</p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-lg font-extrabold text-slate-950">${acc.balance.toLocaleString()}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {isNewAccountModalOpen && (
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end justify-center sm:items-center p-0 sm:p-4">
+                <div className="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-2xl p-6 shadow-2xl animate-slide-up border border-slate-100">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-lg font-bold text-slate-900">Add Account Ledger</h2>
+                    <button onClick={() => setIsNewAccountModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 transition rounded-full p-1.5">
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleAddAccount} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Account Label</label>
+                      <input type="text" value={newAccName} onChange={(e) => setNewAccName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition text-sm" placeholder="e.g. KBZ Bank, Wallet Cash" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Initial Balance</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">$</span>
+                        <input type="number" value={newAccBalance} onChange={(e) => setNewAccBalance(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-8 pr-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition text-sm font-bold" placeholder="0.00" step="0.01" required />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Account Classification</label>
+                      <select value={newAccType} onChange={(e) => setNewAccType(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition text-sm">
+                        <option value="bank">Traditional Banking Account</option>
+                        <option value="cash">External Physical Cash</option>
+                        <option value="ewallet">Electronic Wallet (Paypal, Venmo)</option>
+                      </select>
+                    </div>
+                    <button type="submit" className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wide rounded-xl shadow-lg shadow-blue-500/20 transition-all active:scale-95 mt-4">
+                      Create Ledger Card
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'history':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Ledger History</h2>
+              <p className="text-slate-500 text-xs mt-0.5">Filterable historic item lists</p>
+            </div>
+            
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-100">
+              {transactions.map((tx) => (
+                <div key={tx.id} className="p-4 flex items-center justify-between hover:bg-slate-50/30 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${tx.type === 'expense' ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}>
+                      {tx.type === 'expense' ? <TrendingDown size={18} /> : <TrendingUp size={18} />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm text-slate-900 truncate">{tx.desc}</p>
+                      <p className="text-[11px] text-slate-500 truncate">{tx.account} • {tx.date}</p>
+                    </div>
+                  </div>
+                  <span className={`font-bold text-sm shrink-0 pl-2 ${tx.type === 'expense' ? 'text-slate-900' : 'text-green-600'}`}>
+                    {tx.type === 'expense' ? '-' : '+'}${tx.amount.toLocaleString()}
+                  </span>
+                </div>
+              ))}
+              
+              {transactions.length === 0 && (
+                <div className="p-8 text-center text-slate-400 text-xs">No entries found.</div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 'budgets':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Loans & Borrowing</h2>
+              <p className="text-slate-500 text-xs mt-0.5">Track financial IOUs & dynamic loans</p>
+            </div>
+
+            <div className="grid gap-3">
+              {mockLoans.map(loan => (
+                <div key={loan.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-slate-200 transition-all">
+                  <div className="flex justify-between items-center mb-3">
+                    <div>
+                      <p className="font-bold text-slate-900 text-sm">{loan.name}</p>
+                      <p className="text-[10px] text-slate-400 font-medium tracking-wide uppercase mt-0.5">
+                        {loan.type === 'borrowed' ? 'Debt to repay' : 'Receivables owed'}
+                      </p>
+                    </div>
+                    <span className={`font-bold text-sm ${loan.type === 'borrowed' ? 'text-red-500' : 'text-green-500'}`}>
+                      ${loan.remaining} / ${loan.total}
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-500 ${loan.type === 'borrowed' ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${((loan.total - loan.remaining) / loan.total) * 100}%` }}></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      
+      default:
+        return null;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans text-gray-900 relative max-w-md mx-auto shadow-2xl overflow-hidden border-x border-gray-200">
-      
-      {/* Main View Area */}
-      <main className="h-screen overflow-y-auto hide-scrollbar">
-        {renderView()}
-      </main>
+    <div className="bg-slate-50 min-h-screen font-sans text-slate-900 flex justify-center pb-24">
+      <div className="w-full max-w-md bg-slate-50 min-h-screen relative shadow-2xl flex flex-col pb-10 border-x border-slate-200/50">
+        
+        <TopBar 
+          title={activeTab === 'home' ? 'My Dashboard' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} 
+          syncStatus={syncStatus}
+          isError={isError}
+        />
+        
+        <main className="p-4 flex-1 overflow-y-auto animate-fade-in">
+          {renderView()}
+        </main>
 
-      {/* Slide-up Add Transaction Modal */}
-      <AddTransactionModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
-        onAdd={handleAddTransaction}
-        accounts={accounts}
-      />
-
-      {/* Floating Action Button */}
-      <AddTransactionFab 
-        onClick={() => setIsAddModalOpen(true)} 
-        isVisible={!isAddModalOpen} 
-      />
-
-      {/* Bottom Navigation */}
-      <nav className="absolute bottom-0 w-full bg-white border-t border-gray-100 px-6 py-4 pb-8 flex justify-between items-center z-40 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
-        <button 
-          onClick={() => setActiveTab('home')}
-          className={`flex flex-col items-center gap-1 w-16 transition-colors ${activeTab === 'home' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
-        >
-          <Home size={24} className={activeTab === 'home' ? 'fill-blue-50' : ''} />
-          <span className="text-[10px] font-medium">Home</span>
-        </button>
+        <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
         
         <button 
-          onClick={() => setActiveTab('accounts')}
-          className={`flex flex-col items-center gap-1 w-16 transition-colors ${activeTab === 'accounts' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'} mr-8`}
+          onClick={() => setIsAddModalOpen(true)}
+          className={`fixed bottom-8 left-1/2 -translate-x-1/2 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-xl shadow-blue-500/30 flex items-center justify-center z-30 transition-all duration-300 ease-in-out border-4 border-slate-50 ${
+            !isAddModalOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
+          }`}
+          aria-label="New transaction entry"
         >
-          <Wallet size={24} className={activeTab === 'accounts' ? 'fill-blue-50' : ''} />
-          <span className="text-[10px] font-medium">Accounts</span>
+          <Plus size={28} />
         </button>
 
-        {/* Spacer for Floating Button */}
-        <div className="w-8"></div>
+        <AddTransactionModal 
+          isOpen={isAddModalOpen} 
+          onClose={() => setIsAddModalOpen(false)} 
+          onAdd={handleAddTransaction}
+          accounts={accounts}
+        />
+      </div>
 
-        <button 
-          onClick={() => setActiveTab('history')}
-          className={`flex flex-col items-center gap-1 w-16 transition-colors ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'} ml-8`}
-        >
-          <History size={24} className={activeTab === 'history' ? 'fill-blue-50' : ''} />
-          <span className="text-[10px] font-medium">History</span>
-        </button>
-
-        <button 
-          onClick={() => setActiveTab('budgets')}
-          className={`flex flex-col items-center gap-1 w-16 transition-colors ${activeTab === 'budgets' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
-        >
-          <PieChart size={24} className={activeTab === 'budgets' ? 'fill-blue-50' : ''} />
-          <span className="text-[10px] font-medium">Budgets</span>
-        </button>
-      </nav>
-
-      {/* Hide Scrollbar Styles */}
       <style dangerouslySetInnerHTML={{__html: `
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .animate-slide-up { animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-fade-in { animation: fadeIn 0.25s ease-out forwards; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
