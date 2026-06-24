@@ -53,6 +53,8 @@ interface LoanData {
   type: string;
 }
 
+const formatMMK = (amount: number) => `${Math.round(amount).toLocaleString()} MMK`;
+
 // Removed 'icon' parameter from data state so Firestore doesn't crash on non-serializable objects
 const initialAccounts: AccountData[] = [
   {
@@ -80,9 +82,6 @@ const initialAccounts: AccountData[] = [
     bg: "bg-indigo-50",
   },
 ];
-
-
-const formatMMK = (amount: number) => `${Math.round(amount).toLocaleString()} MMK`;
 
 const initialTransactions: TransactionData[] = [
   {
@@ -378,7 +377,7 @@ const AddTransactionModal = ({
       account || (accounts.length > 0 ? accounts[0].name : "");
 
     onAdd({
-      amount: parseFloat(amount),
+      amount: Math.round(Number(amount)),
       type,
       desc,
       account: finalAccount,
@@ -433,15 +432,15 @@ const AddTransactionModal = ({
             </label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl font-medium">
-                $
+                MMK
               </span>
               <input
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-9 pr-4 text-2xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-                placeholder="0.00"
-                step="0.01"
+                placeholder="0"
+                step="1"
                 required
               />
             </div>
@@ -472,7 +471,7 @@ const AddTransactionModal = ({
             >
               {accounts.map((acc: AccountData) => (
                 <option key={acc.id} value={acc.name}>
-                  {acc.name} (${acc.balance.toLocaleString()})
+                  {acc.name} ({formatMMK(acc.balance)})
                 </option>
               ))}
             </select>
@@ -847,7 +846,7 @@ export default function App() {
                     <TrendingUp size={14} className="text-green-300" /> Income
                   </div>
                   <p className="text-xl font-bold text-white">
-                    + ${calculatedIncome.toLocaleString()}
+                    + {formatMMK(calculatedIncome)}
                   </p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
@@ -855,7 +854,7 @@ export default function App() {
                     <TrendingDown size={14} className="text-red-300" /> Expenses
                   </div>
                   <p className="text-xl font-bold text-white">
-                    - ${calculatedExpense.toLocaleString()}
+                    - {formatMMK(calculatedExpense)}
                   </p>
                 </div>
               </div>
@@ -911,7 +910,7 @@ export default function App() {
                           {acc.name}
                         </p>
                         <p className="text-lg font-bold text-slate-900">
-                          ${acc.balance.toLocaleString()}
+                          {formatMMK(acc.balance)}
                         </p>
                       </div>
                     </div>
@@ -959,8 +958,7 @@ export default function App() {
                       <span
                         className={`font-bold text-sm shrink-0 pl-2 ${tx.type === "expense" ? "text-slate-900" : "text-green-600"}`}
                       >
-                        {tx.type === "expense" ? "-" : "+"}
-                        {formatMMK(tx.amount)}
+                        {tx.type === "expense" ? "-" : "+"}{formatMMK(tx.amount)}
                       </span>
                     </div>
                   </SwipeableItem>
@@ -1027,7 +1025,7 @@ export default function App() {
                       </div>
                       <div className="text-right shrink-0">
                         <span className="text-lg font-extrabold text-slate-950">
-                          ${acc.balance.toLocaleString()}
+                          {formatMMK(acc.balance)}
                         </span>
                       </div>
                     </div>
@@ -1076,15 +1074,15 @@ export default function App() {
                       </label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">
-                          $
+                          MMK
                         </span>
                         <input
                           type="number"
                           value={newAccBalance}
                           onChange={(e) => setNewAccBalance(e.target.value)}
                           className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-8 pr-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition text-sm font-bold"
-                          placeholder="0.00"
-                          step="0.01"
+                          placeholder="0"
+                          step="1"
                           required
                         />
                       </div>
@@ -1158,8 +1156,7 @@ export default function App() {
                     <span
                       className={`font-bold text-sm shrink-0 pl-2 ${tx.type === "expense" ? "text-slate-900" : "text-green-600"}`}
                     >
-                      {tx.type === "expense" ? "-" : "+"}$
-                      {tx.amount.toLocaleString()}
+                      {tx.type === "expense" ? "-" : "+"}{formatMMK(tx.amount)}
                     </span>
                   </div>
                 </SwipeableItem>
@@ -1217,7 +1214,7 @@ export default function App() {
                       <span
                         className={`font-bold text-sm ${loan.type === "borrowed" ? "text-red-500" : "text-green-500"}`}
                       >
-                        ${loan.remaining} / ${loan.total}
+                        {formatMMK(loan.remaining)} / {formatMMK(loan.total)}
                       </span>
                     </div>
                     <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
@@ -1290,14 +1287,14 @@ export default function App() {
                           Total Amount
                         </label>
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">$</span>
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">MMK</span>
                           <input
                             type="number"
                             value={newLoanTotal}
                             onChange={(e) => setNewLoanTotal(e.target.value)}
                             className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-7 pr-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition text-sm font-bold"
-                            placeholder="0.00"
-                            step="0.01"
+                            placeholder="0"
+                            step="1"
                             required
                           />
                         </div>
@@ -1307,14 +1304,14 @@ export default function App() {
                           Remaining
                         </label>
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">$</span>
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">MMK</span>
                           <input
                             type="number"
                             value={newLoanRemaining}
                             onChange={(e) => setNewLoanRemaining(e.target.value)}
                             className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-7 pr-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition text-sm font-bold"
                             placeholder="(Optional)"
-                            step="0.01"
+                            step="1"
                           />
                         </div>
                       </div>
