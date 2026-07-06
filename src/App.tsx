@@ -1,14 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { initializeApp } from "firebase/app";
-import {
-  getAuth,
-  signInWithCustomToken,
-  signInAnonymously,
-  onAuthStateChanged,
-} from "firebase/auth";
-import type { User as FirebaseAuthUser, Auth } from "firebase/auth";
-import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
-import type { Firestore } from "firebase/firestore";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Home,
   CreditCard,
@@ -25,6 +15,7 @@ import {
   AlertTriangle,
   Trash2,
 } from "lucide-react";
+import { ApiError, api, clearAuthToken, getAuthToken, setAuthToken } from "./services/api";
 
 // --- Types ---
 interface AccountData {
@@ -38,6 +29,8 @@ interface AccountData {
 
 interface TransactionData {
   id: number;
+  account_id?: number;
+  category_id?: number | null;
   amount: number;
   type: string;
   category: string;
@@ -54,134 +47,64 @@ interface LoanData {
   type: string;
 }
 
-// --- Initial State ---
-const initialAccounts: AccountData[] = [
-  {
-    id: 1,
-    name: "Main Checking",
-    balance: 0,
-    type: "bank",
-    color: "text-blue-600",
-    bg: "bg-blue-100",
-  },
-  {
-    id: 2,
-    name: "Cash Wallet",
-    balance: 0,
-    type: "cash",
-    color: "text-emerald-600",
-    bg: "bg-emerald-100",
-  },
-  {
-    id: 3,
-    name: "PayPal",
-    balance: 0,
-    type: "ewallet",
-    color: "text-indigo-600",
-    bg: "bg-indigo-100",
-  },
-];
-
-const initialTransactions: TransactionData[] = [
-  {
-    id: 101,
-    amount: 0,
-    type: "expense",
-    category: "Food",
-    account: "Main Checking",
-    date: new Date().toISOString().split("T")[0],
-    desc: "Groceries",
-  },
-  {
-    id: 102,
-    amount: 0,
-    type: "income",
-    category: "Salary",
-    account: "Main Checking",
-    date: new Date().toISOString().split("T")[0],
-    desc: "Paycheck",
-  },
-];
-
-const initialLoans: LoanData[] = [
-  {
-    id: 1,
-    name: "Alice (I Owe)",
-    total: 0,
-    remaining: 0,
-    type: "borrowed",
-  },
-  { id: 2, name: "Bob (Owes Me)", total: 100000, remaining: 100000, type: "lent" },
-];
-
-const getGlobalValue = (key: string): string | undefined => {
-  if (typeof window !== "undefined") {
-    return (window as unknown as Record<string, unknown>)[key] as
-      | string
-      | undefined;
-  }
-  return undefined;
-};
-
-// --- Firebase Configuration ---
-const firebaseConfig = {
-  apiKey: "AIzaSyADKcHmYUjmo7-PEd1P9Rv6sGblbeeduRc",
-  authDomain: "finance-app-221bb.firebaseapp.com",
-  projectId: "finance-app-221bb",
-  storageBucket: "finance-app-221bb.firebasestorage.app",
-  messagingSenderId: "838412317776",
-  appId: "1:838412317776:web:f12144aee0d68aba428d55",
-  measurementId: "G-F268X22YTR",
-};
-
-let auth: Auth | null = null;
-let db: Firestore | null = null;
-let isFirebaseConfigured = false;
-let usingCanvasFirebase = false;
-
-const hasUserConfig =
-  firebaseConfig.apiKey && firebaseConfig.apiKey.startsWith("AIzaSy");
-const activeConfigStr = getGlobalValue("__firebase_config");
-let finalConfig = firebaseConfig;
-
-if (hasUserConfig) {
-  finalConfig = firebaseConfig;
-  isFirebaseConfigured = true;
-} else if (activeConfigStr) {
-  try {
-    finalConfig = JSON.parse(activeConfigStr);
-    isFirebaseConfigured = true;
-    usingCanvasFirebase = true;
-  } catch (error) {
-    console.error("Failed to parse system Firebase configuration", error);
-  }
+interface CategoryData {
+  id: number;
+  name: string;
+  type: string;
 }
 
-if (isFirebaseConfigured) {
-  try {
-    const appInstance = initializeApp(finalConfig);
-    auth = getAuth(appInstance);
-    db = getFirestore(appInstance);
-  } catch (error) {
-    console.error("Initialization error, running locally:", error);
-    isFirebaseConfigured = false;
-  }
+interface PinResponse {
+  token: string;
+  expires_at: number;
+  remember_hours: 24 | 48;
 }
 
-const myAppId = getGlobalValue("__app_id") || "my-personal-finance-app-v1";
+interface AccountsResponse {
+  accounts: AccountData[];
+}
 
-const sanitizeAccounts = (accs: unknown[]) =>
-  (accs as Record<string, unknown>[]).map((acc) => {
-    const clean = { ...acc };
-    delete clean.icon;
-    return clean;
-  });
+interface TransactionsResponse {
+  transactions: TransactionData[];
+}
+
+interface TransactionMutationResponse {
+  transaction: TransactionData;
+  accounts: AccountData[];
+}
+
+interface LoansResponse {
+  loans: LoanData[];
+}
+
+interface LoanMutationResponse {
+  loan: LoanData;
+}
+
+interface CategoriesResponse {
+  categories: CategoryData[];
+}
+
+interface AccountMutationResponse {
+  account: AccountData;
+}
 
 // --- Formatting Helper (MMK) ---
 const formatMMK = (num: number) => {
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 0,
   }).format(num);
+};
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof ApiError) {
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Something went wrong.";
 };
 
 // --- Swipeable Component ---
@@ -290,7 +213,7 @@ const TopBar = ({
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold shadow-sm ${
             isError
               ? "bg-red-100 text-red-600 border border-red-200"
-              : syncStatus === "Cloud Synced"
+              : syncStatus === "API Synced"
                 ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
                 : "bg-amber-100 text-amber-700 border border-amber-200"
           }`}
@@ -298,7 +221,7 @@ const TopBar = ({
           {!isError && (
             <span
               className={`w-1.5 h-1.5 rounded-full ${
-                syncStatus === "Cloud Synced"
+                syncStatus === "API Synced"
                   ? "bg-emerald-500 animate-pulse"
                   : "bg-amber-500"
               }`}
@@ -388,7 +311,7 @@ const AddTransactionModal = ({
     account: string;
     date: string;
     category: string;
-  }) => void;
+  }) => void | Promise<void>;
   accounts: AccountData[];
 }) => {
   const [type, setType] = useState("expense");
@@ -527,20 +450,124 @@ const AddTransactionModal = ({
   );
 };
 
+const PinScreen = ({
+  onUnlocked,
+}: {
+  onUnlocked: () => Promise<void>;
+}) => {
+  const [pin, setPin] = useState("");
+  const [rememberHours, setRememberHours] = useState<24 | 48>(48);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError("");
+    setIsSubmitting(true);
+
+    try {
+      const response = await api.post<PinResponse>("auth/pin.php", {
+        pin,
+        remember_hours: rememberHours,
+      });
+
+      setAuthToken(response.data.token, response.data.expires_at);
+      await onUnlocked();
+    } catch (submitError) {
+      setError(getErrorMessage(submitError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="bg-zinc-100 h-screen overflow-hidden font-sans text-zinc-900 flex justify-center">
+      <div className="w-full max-w-md bg-zinc-50 h-full flex flex-col justify-center px-6 border-x border-zinc-200">
+        <div className="mb-8">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600 mb-3">
+            Personal Finance
+          </p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-zinc-950">
+            Enter PIN
+          </h1>
+          <p className="text-sm text-zinc-500 mt-2 leading-relaxed">
+            Unlock your finance dashboard on this device.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+              4-digit PIN
+            </label>
+            <input
+              type="password"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="\d{4}"
+              maxLength={4}
+              value={pin}
+              onChange={(event) =>
+                setPin(event.target.value.replace(/\D/g, "").slice(0, 4))
+              }
+              className="w-full bg-white border border-zinc-200 rounded-xl py-4 px-4 text-zinc-950 focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-3xl font-extrabold text-center tracking-[0.45em]"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+              Remember on this device
+            </label>
+            <div className="grid grid-cols-2 gap-2 bg-zinc-100 p-1 rounded-xl">
+              {[24, 48].map((hours) => (
+                <button
+                  key={hours}
+                  type="button"
+                  onClick={() => setRememberHours(hours as 24 | 48)}
+                  className={`py-2.5 rounded-lg font-bold text-xs transition ${
+                    rememberHours === hours
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-zinc-500"
+                  }`}
+                >
+                  {hours} hours
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-xs font-semibold">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold text-sm tracking-wide rounded-xl shadow-lg shadow-blue-600/20 transition-all active:scale-95"
+          >
+            {isSubmitting ? "Unlocking..." : "Unlock"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState("home");
-  const [accounts, setAccounts] = useState<AccountData[]>(initialAccounts);
-  const [transactions, setTransactions] = useState<TransactionData[]>(
-    initialTransactions
-  );
-  const [loans, setLoans] = useState<LoanData[]>(initialLoans);
+  const [accounts, setAccounts] = useState<AccountData[]>([]);
+  const [transactions, setTransactions] = useState<TransactionData[]>([]);
+  const [loans, setLoans] = useState<LoanData[]>([]);
+  const [categories, setCategories] = useState<CategoryData[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  const [user, setUser] = useState<FirebaseAuthUser | null>(null);
-  const [syncStatus, setSyncStatus] = useState(
-    !isFirebaseConfigured ? "Local Sandbox" : "Connecting..."
-  );
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [syncStatus, setSyncStatus] = useState("Connecting...");
   const [isError, setIsError] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   const [isNewAccountModalOpen, setIsNewAccountModalOpen] = useState(false);
   const [newAccName, setNewAccName] = useState("");
@@ -553,196 +580,163 @@ export default function App() {
   const [newLoanTotal, setNewLoanTotal] = useState("");
   const [newLoanRemaining, setNewLoanRemaining] = useState("");
 
-  // 1. Authentication Check
-  useEffect(() => {
-    if (!isFirebaseConfigured || !auth) {
-      return;
-    }
-
-    const initAuth = async () => {
-      try {
-        if (usingCanvasFirebase) {
-          const initialAuthToken = getGlobalValue("__initial_auth_token");
-          if (initialAuthToken && auth) {
-            await signInWithCustomToken(auth, initialAuthToken);
-          } else if (auth) {
-            await signInAnonymously(auth);
-          }
-        } else {
-          if (auth) {
-            await signInAnonymously(auth);
-          }
-        }
-      } catch (error: unknown) {
-        console.error("Auth error:", error);
-        const err = error as { code?: string };
-        setSyncStatus(
-          err.code === "auth/operation-not-allowed"
-            ? "Enable Anonymous Login!"
-            : "Auth Failed"
-        );
-        setIsError(true);
-      }
-    };
-    initAuth();
-
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        setSyncStatus((prevStatus) => {
-          if (
-            prevStatus === "Enable Anonymous Login!" ||
-            prevStatus === "Auth Failed"
-          )
-            return prevStatus;
-          return "Cloud Synced";
-        });
-      }
-    });
-    return () => unsubscribe();
+  const resetFinanceState = useCallback(() => {
+    setAccounts([]);
+    setTransactions([]);
+    setLoans([]);
+    setCategories([]);
   }, []);
 
-  // 2. Database Sync Check
+  const loadFinanceData = useCallback(async () => {
+    setSyncStatus("Syncing...");
+
+    const [
+      accountsResponse,
+      transactionsResponse,
+      loansResponse,
+      categoriesResponse,
+    ] = await Promise.all([
+      api.get<AccountsResponse>("accounts/index.php"),
+      api.get<TransactionsResponse>("transactions/index.php"),
+      api.get<LoansResponse>("loans/index.php"),
+      api.get<CategoriesResponse>("categories/index.php"),
+    ]);
+
+    setAccounts(accountsResponse.data.accounts);
+    setTransactions(transactionsResponse.data.transactions);
+    setLoans(loansResponse.data.loans);
+    setCategories(categoriesResponse.data.categories);
+    setSyncStatus("API Synced");
+    setIsError(false);
+  }, []);
+
   useEffect(() => {
-    if (!isFirebaseConfigured || !user || !db) return;
+    let cancelled = false;
 
-    const stateRef = doc(
-      db,
-      "artifacts",
-      myAppId,
-      "public",
-      "data",
-      "ledgers",
-      "finance_state"
-    );
-
-    const unsubscribe = onSnapshot(
-      stateRef,
-      (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data.accounts) setAccounts(data.accounts as AccountData[]);
-          if (data.transactions)
-            setTransactions(data.transactions as TransactionData[]);
-          if (data.loans) setLoans(data.loans as LoanData[]);
-        } else {
-          if (db) {
-            const safeAccounts = sanitizeAccounts(initialAccounts);
-            setDoc(stateRef, {
-              accounts: safeAccounts,
-              transactions: initialTransactions,
-              loans: initialLoans,
-            }).catch((err: unknown) => {
-              console.error(err);
-              setSyncStatus("Rules Denied (Check DB Rules)");
-              setIsError(true);
-            });
-          }
-        }
-      },
-      (error: unknown) => {
-        console.error("Firestore error:", error);
-        setSyncStatus("DB Error (Check Rules)");
-        setIsError(true);
+    const bootFromToken = async () => {
+      if (!getAuthToken()) {
+        setSyncStatus("PIN required");
+        setIsInitializing(false);
+        return;
       }
-    );
 
-    return () => unsubscribe();
-  }, [user]);
+      try {
+        if (cancelled) {
+          return;
+        }
+
+        await loadFinanceData();
+        setIsUnlocked(true);
+      } catch (error) {
+        if (!cancelled) {
+          console.error("PIN session restore failed:", error);
+          clearAuthToken();
+          setIsUnlocked(false);
+          resetFinanceState();
+          setSyncStatus("PIN required");
+          setIsError(false);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsInitializing(false);
+        }
+      }
+    };
+
+    bootFromToken();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadFinanceData, resetFinanceState]);
+
+  useEffect(() => {
+    const handleExpired = () => {
+      setIsUnlocked(false);
+      resetFinanceState();
+      setSyncStatus("Session expired");
+      setIsError(true);
+    };
+
+    window.addEventListener("auth:expired", handleExpired);
+
+    return () => window.removeEventListener("auth:expired", handleExpired);
+  }, [resetFinanceState]);
+
+  const handleUnlocked = useCallback(
+    async () => {
+      setIsInitializing(true);
+
+      try {
+        await loadFinanceData();
+        setIsUnlocked(true);
+      } catch (error) {
+        console.error("Initial data load failed:", error);
+        setSyncStatus("API Error");
+        setIsError(true);
+      } finally {
+        setIsInitializing(false);
+      }
+    },
+    [loadFinanceData],
+  );
 
   const handleDeleteTransaction = async (idToDelete: number) => {
-    const txToDelete = transactions.find((t) => t.id === idToDelete);
-    if (!txToDelete) return;
+    const previousTransactions = transactions;
+    const previousAccounts = accounts;
 
-    const updatedTransactions = transactions.filter((t) => t.id !== idToDelete);
-    const updatedAccounts = accounts.map((acc) => {
-      if (acc.name === txToDelete.account) {
-        const balanceModifier =
-          txToDelete.type === "expense"
-            ? txToDelete.amount
-            : -txToDelete.amount;
-        return { ...acc, balance: acc.balance + balanceModifier };
-      }
-      return acc;
-    });
+    setTransactions((currentTransactions) =>
+      currentTransactions.filter((transaction) => transaction.id !== idToDelete)
+    );
 
-    setTransactions(updatedTransactions);
-    setAccounts(updatedAccounts);
-
-    if (isFirebaseConfigured && user && db && !isError) {
-      const stateRef = doc(
-        db,
-        "artifacts",
-        myAppId,
-        "public",
-        "data",
-        "ledgers",
-        "finance_state"
+    try {
+      const response = await api.delete<{ accounts: AccountData[] }>(
+        `transactions/delete.php?id=${idToDelete}`,
       );
-      try {
-        const safeAccounts = sanitizeAccounts(updatedAccounts);
-        await setDoc(stateRef, {
-          accounts: safeAccounts,
-          transactions: updatedTransactions,
-          loans,
-        });
-      } catch (error) {
-        console.error("Cloud delete failure:", error);
-      }
+      setAccounts(response.data.accounts);
+      setSyncStatus("API Synced");
+      setIsError(false);
+    } catch (error) {
+      console.error("Transaction delete failed:", error);
+      setTransactions(previousTransactions);
+      setAccounts(previousAccounts);
+      setSyncStatus("API Error");
+      setIsError(true);
     }
   };
 
   const handleDeleteAccount = async (idToDelete: number) => {
-    const updatedAccounts = accounts.filter((a) => a.id !== idToDelete);
-    setAccounts(updatedAccounts);
+    const previousAccounts = accounts;
 
-    if (isFirebaseConfigured && user && db && !isError) {
-      const stateRef = doc(
-        db,
-        "artifacts",
-        myAppId,
-        "public",
-        "data",
-        "ledgers",
-        "finance_state"
-      );
-      try {
-        const safeAccounts = sanitizeAccounts(updatedAccounts);
-        await setDoc(stateRef, {
-          accounts: safeAccounts,
-          transactions: transactions,
-          loans,
-        });
-      } catch (error) {
-        console.error("Cloud delete failure:", error);
-      }
+    setAccounts((currentAccounts) =>
+      currentAccounts.filter((account) => account.id !== idToDelete)
+    );
+
+    try {
+      await api.delete<Record<string, never>>(`accounts/delete.php?id=${idToDelete}`);
+      await loadFinanceData();
+    } catch (error) {
+      console.error("Account delete failed:", error);
+      setAccounts(previousAccounts);
+      setSyncStatus("API Error");
+      setIsError(true);
     }
   };
 
   const handleDeleteLoan = async (idToDelete: number) => {
-    const updatedLoans = loans.filter((l) => l.id !== idToDelete);
-    setLoans(updatedLoans);
+    const previousLoans = loans;
 
-    if (isFirebaseConfigured && user && db && !isError) {
-      const stateRef = doc(
-        db,
-        "artifacts",
-        myAppId,
-        "public",
-        "data",
-        "ledgers",
-        "finance_state"
-      );
-      try {
-        const safeAccounts = sanitizeAccounts(accounts);
-        await setDoc(stateRef, {
-          accounts: safeAccounts,
-          transactions,
-          loans: updatedLoans,
-        });
-      } catch (error) {
-        console.error("Cloud delete failure:", error);
-      }
+    setLoans((currentLoans) => currentLoans.filter((loan) => loan.id !== idToDelete));
+
+    try {
+      await api.delete<Record<string, never>>(`loans/delete.php?id=${idToDelete}`);
+      setSyncStatus("API Synced");
+      setIsError(false);
+    } catch (error) {
+      console.error("Loan delete failed:", error);
+      setLoans(previousLoans);
+      setSyncStatus("API Error");
+      setIsError(true);
     }
   };
 
@@ -754,45 +748,59 @@ export default function App() {
     date: string;
     category: string;
   }) => {
-    const transactionWithId: TransactionData = { ...newTx, id: Date.now() };
-    const updatedTransactions = [transactionWithId, ...transactions];
+    const selectedAccount = accounts.find((account) => account.name === newTx.account);
 
-    const updatedAccounts = accounts.map((acc) => {
-      if (acc.name === newTx.account) {
-        const balanceModifier =
-          newTx.type === "expense" ? -newTx.amount : newTx.amount;
-        return { ...acc, balance: acc.balance + balanceModifier };
-      }
-      return acc;
-    });
+    if (!selectedAccount) {
+      setSyncStatus("Select an account");
+      setIsError(true);
+      return;
+    }
 
-    setTransactions(updatedTransactions);
-    setAccounts(updatedAccounts);
+    const selectedCategory = categories.find(
+      (category) =>
+        category.type === newTx.type &&
+        category.name.toLowerCase() === newTx.category.toLowerCase(),
+    );
+    const optimisticId = Date.now();
+    const optimisticTransaction: TransactionData = {
+      ...newTx,
+      id: optimisticId,
+      account_id: selectedAccount.id,
+      category_id: selectedCategory?.id ?? null,
+    };
 
-    if (isFirebaseConfigured && user && db && !isError) {
-      const stateRef = doc(
-        db,
-        "artifacts",
-        myAppId,
-        "public",
-        "data",
-        "ledgers",
-        "finance_state"
+    setTransactions((currentTransactions) => [
+      optimisticTransaction,
+      ...currentTransactions,
+    ]);
+
+    try {
+      const response = await api.post<TransactionMutationResponse>(
+        "transactions/create.php",
+        {
+          account_id: selectedAccount.id,
+          category_id: selectedCategory?.id ?? null,
+          amount: newTx.amount,
+          type: newTx.type,
+          desc: newTx.desc,
+          date: newTx.date,
+        },
       );
-      try {
-        const safeAccounts = sanitizeAccounts(updatedAccounts);
-        await setDoc(stateRef, {
-          accounts: safeAccounts,
-          transactions: updatedTransactions,
-          loans,
-        });
-        setSyncStatus("Cloud Synced");
-        setIsError(false);
-      } catch (error: unknown) {
-        console.error("Cloud persistence failure:", error);
-        setSyncStatus("Failed to Save");
-        setIsError(true);
-      }
+
+      setTransactions((currentTransactions) => [
+        response.data.transaction,
+        ...currentTransactions.filter((transaction) => transaction.id !== optimisticId),
+      ]);
+      setAccounts(response.data.accounts);
+      setSyncStatus("API Synced");
+      setIsError(false);
+    } catch (error) {
+      console.error("Transaction save failed:", error);
+      setTransactions((currentTransactions) =>
+        currentTransactions.filter((transaction) => transaction.id !== optimisticId)
+      );
+      setSyncStatus("API Error");
+      setIsError(true);
     }
   };
 
@@ -801,53 +809,23 @@ export default function App() {
     if (!newAccName || !newAccBalance || isNaN(parseFloat(newAccBalance)))
       return;
 
-    let color = "text-blue-600";
-    let bg = "bg-blue-100";
+    try {
+      const response = await api.post<AccountMutationResponse>("accounts/create.php", {
+        name: newAccName,
+        balance: parseFloat(newAccBalance),
+        type: newAccType,
+      });
 
-    if (newAccType === "cash") {
-      color = "text-emerald-600";
-      bg = "bg-emerald-100";
-    } else if (newAccType === "ewallet") {
-      color = "text-indigo-600";
-      bg = "bg-indigo-100";
-    }
-
-    const createdAccount: AccountData = {
-      id: Date.now(),
-      name: newAccName,
-      balance: parseFloat(newAccBalance),
-      type: newAccType,
-      color,
-      bg,
-    };
-
-    const updatedAccounts = [...accounts, createdAccount];
-    setAccounts(updatedAccounts);
-
-    setNewAccName("");
-    setNewAccBalance("");
-    setIsNewAccountModalOpen(false);
-
-    if (isFirebaseConfigured && user && db && !isError) {
-      const stateRef = doc(
-        db,
-        "artifacts",
-        myAppId,
-        "public",
-        "data",
-        "ledgers",
-        "finance_state"
-      );
-      try {
-        const safeAccounts = sanitizeAccounts(updatedAccounts);
-        await setDoc(stateRef, {
-          accounts: safeAccounts,
-          transactions: transactions,
-          loans,
-        });
-      } catch (error: unknown) {
-        console.error("Cloud save failure:", error);
-      }
+      setAccounts((currentAccounts) => [...currentAccounts, response.data.account]);
+      setNewAccName("");
+      setNewAccBalance("");
+      setIsNewAccountModalOpen(false);
+      setSyncStatus("API Synced");
+      setIsError(false);
+    } catch (error) {
+      console.error("Account save failed:", error);
+      setSyncStatus("API Error");
+      setIsError(true);
     }
   };
 
@@ -862,42 +840,25 @@ export default function App() {
         ? parseFloat(newLoanRemaining)
         : total;
 
-    const newLoan: LoanData = {
-      id: Date.now(),
-      name: newLoanName,
-      total,
-      remaining,
-      type: newLoanType,
-    };
+    try {
+      const response = await api.post<LoanMutationResponse>("loans/create.php", {
+        name: newLoanName,
+        total,
+        remaining,
+        type: newLoanType,
+      });
 
-    const updatedLoans = [...loans, newLoan];
-    setLoans(updatedLoans);
-
-    setNewLoanName("");
-    setNewLoanTotal("");
-    setNewLoanRemaining("");
-    setIsNewLoanModalOpen(false);
-
-    if (isFirebaseConfigured && user && db && !isError) {
-      const stateRef = doc(
-        db,
-        "artifacts",
-        myAppId,
-        "public",
-        "data",
-        "ledgers",
-        "finance_state"
-      );
-      try {
-        const safeAccounts = sanitizeAccounts(accounts);
-        await setDoc(stateRef, {
-          accounts: safeAccounts,
-          transactions,
-          loans: updatedLoans,
-        });
-      } catch (error: unknown) {
-        console.error("Cloud save failure:", error);
-      }
+      setLoans((currentLoans) => [...currentLoans, response.data.loan]);
+      setNewLoanName("");
+      setNewLoanTotal("");
+      setNewLoanRemaining("");
+      setIsNewLoanModalOpen(false);
+      setSyncStatus("API Synced");
+      setIsError(false);
+    } catch (error) {
+      console.error("Loan save failed:", error);
+      setSyncStatus("API Error");
+      setIsError(true);
     }
   };
 
@@ -955,7 +916,7 @@ export default function App() {
                 <div className="text-xs text-red-800 space-y-1">
                   <p className="font-bold">Sync Error: {syncStatus}</p>
                   <p className="text-red-700/90 leading-relaxed">
-                    Ensure you enabled Anonymous Login in the Auth tab.
+                    Check your API URL, database credentials, or enter your PIN again.
                   </p>
                 </div>
               </div>
@@ -1449,6 +1410,23 @@ export default function App() {
         return null;
     }
   };
+
+  if (isInitializing) {
+    return (
+      <div className="bg-zinc-100 h-screen overflow-hidden font-sans text-zinc-900 flex justify-center">
+        <div className="w-full max-w-md bg-zinc-50 h-full flex items-center justify-center border-x border-zinc-200">
+          <div className="text-center">
+            <div className="w-10 h-10 rounded-full border-4 border-blue-100 border-t-blue-600 animate-spin mx-auto mb-4"></div>
+            <p className="text-sm font-bold text-zinc-700">{syncStatus}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isUnlocked) {
+    return <PinScreen onUnlocked={handleUnlocked} />;
+  }
 
   return (
     <div className="bg-zinc-100 h-screen overflow-hidden font-sans text-zinc-900 flex justify-center">
