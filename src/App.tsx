@@ -617,8 +617,13 @@ export default function App() {
     setCategories([]);
   }, []);
 
-  const loadFinanceData = useCallback(async () => {
+
+  
+ const loadFinanceData = useCallback(async () => {
     setSyncStatus("Syncing...");
+
+    // Generate a unique timestamp for cache-busting
+    const timestamp = Date.now();
 
     const [
       accountsResponse,
@@ -626,10 +631,10 @@ export default function App() {
       loansResponse,
       categoriesResponse,
     ] = await Promise.all([
-      api.get<AccountsResponse>("accounts/index.php"),
-      api.get<TransactionsResponse>("transactions/index.php"),
-      api.get<LoansResponse>("loans/index.php"),
-      api.get<CategoriesResponse>("categories/index.php"),
+      api.get<AccountsResponse>(`accounts/index.php?_t=${timestamp}`),
+      api.get<TransactionsResponse>(`transactions/index.php?_t=${timestamp}`),
+      api.get<LoansResponse>(`loans/index.php?_t=${timestamp}`),
+      api.get<CategoriesResponse>(`categories/index.php?_t=${timestamp}`),
     ]);
 
     setAccounts(accountsResponse.data.accounts);
@@ -638,8 +643,28 @@ export default function App() {
     setCategories(categoriesResponse.data.categories);
     setSyncStatus("API Synced");
     setIsError(false);
+
+    
   }, []);
 
+  // --- Auto-Refresh on iOS App Resume ---
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // If the app just came back to the screen AND the user is logged in
+      if (document.visibilityState === "visible" && isUnlocked) {
+        // Silently fetch the latest data in the background
+        loadFinanceData(); 
+      }
+    };
+
+    // Listen for when the app goes to the background or comes to the foreground
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isUnlocked, loadFinanceData]);
+  
   useEffect(() => {
     let cancelled = false;
 
