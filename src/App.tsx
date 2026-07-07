@@ -14,8 +14,15 @@ import {
   PlusCircle,
   AlertTriangle,
   Trash2,
+  RefreshCw,
 } from "lucide-react";
-import { ApiError, api, clearAuthToken, getAuthToken, setAuthToken } from "./services/api";
+import {
+  ApiError,
+  api,
+  clearAuthToken,
+  getAuthToken,
+  setAuthToken,
+} from "./services/api";
 
 // --- Types ---
 interface AccountData {
@@ -191,15 +198,16 @@ const SwipeableItem = ({
   );
 };
 
-// --- Shared UI Components ---
 const TopBar = ({
   title,
   syncStatus,
   isError,
+  onSync,
 }: {
   title: string;
   syncStatus: string;
   isError: boolean;
+  onSync?: () => void;
 }) => (
   <div className="bg-zinc-50 text-zinc-900 p-5 shrink-0 flex flex-col justify-between items-start z-10">
     <div className="flex justify-between items-center w-full mt-2">
@@ -209,6 +217,21 @@ const TopBar = ({
         </h1>
       </div>
       <div className="flex items-center gap-2">
+        {onSync && (
+          <button
+            onClick={onSync}
+            disabled={syncStatus === "Syncing..."}
+            className="p-1.5 text-zinc-500 hover:text-zinc-900 bg-white border border-zinc-200 shadow-sm rounded-full transition-all active:scale-95 disabled:opacity-50"
+            aria-label="Sync data"
+          >
+            <RefreshCw
+              size={14}
+              className={
+                syncStatus === "Syncing..." ? "animate-spin text-blue-600" : ""
+              }
+            />
+          </button>
+        )}
         <div
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold shadow-sm ${
             isError
@@ -246,16 +269,23 @@ const BottomNav = ({
     <button
       onClick={() => setActiveTab("home")}
       className={`flex flex-col items-center transition-all ${
-        activeTab === "home" ? "text-blue-600" : "text-zinc-400 hover:text-zinc-600"
+        activeTab === "home"
+          ? "text-blue-600"
+          : "text-zinc-400 hover:text-zinc-600"
       }`}
     >
-      <Home size={22} className={activeTab === "home" ? "stroke-[2.5px]" : ""} />
+      <Home
+        size={22}
+        className={activeTab === "home" ? "stroke-[2.5px]" : ""}
+      />
       <span className="text-[10px] mt-1 font-semibold">Home</span>
     </button>
     <button
       onClick={() => setActiveTab("accounts")}
       className={`flex flex-col items-center transition-all ${
-        activeTab === "accounts" ? "text-blue-600" : "text-zinc-400 hover:text-zinc-600"
+        activeTab === "accounts"
+          ? "text-blue-600"
+          : "text-zinc-400 hover:text-zinc-600"
       }`}
     >
       <CreditCard
@@ -264,14 +294,16 @@ const BottomNav = ({
       />
       <span className="text-[10px] mt-1 font-semibold">Accounts</span>
     </button>
-    
+
     {/* Spacer for Floating Action Button */}
     <div className="w-16"></div>
-    
+
     <button
       onClick={() => setActiveTab("history")}
       className={`flex flex-col items-center transition-all ${
-        activeTab === "history" ? "text-blue-600" : "text-zinc-400 hover:text-zinc-600"
+        activeTab === "history"
+          ? "text-blue-600"
+          : "text-zinc-400 hover:text-zinc-600"
       }`}
     >
       <History
@@ -283,7 +315,9 @@ const BottomNav = ({
     <button
       onClick={() => setActiveTab("budgets")}
       className={`flex flex-col items-center transition-all ${
-        activeTab === "budgets" ? "text-blue-600" : "text-zinc-400 hover:text-zinc-600"
+        activeTab === "budgets"
+          ? "text-blue-600"
+          : "text-zinc-400 hover:text-zinc-600"
       }`}
     >
       <PieChart
@@ -450,11 +484,7 @@ const AddTransactionModal = ({
   );
 };
 
-const PinScreen = ({
-  onUnlocked,
-}: {
-  onUnlocked: () => Promise<void>;
-}) => {
+const PinScreen = ({ onUnlocked }: { onUnlocked: () => Promise<void> }) => {
   const [pin, setPin] = useState("");
   const [rememberHours, setRememberHours] = useState<24 | 48>(48);
   const [error, setError] = useState("");
@@ -663,30 +693,29 @@ export default function App() {
     return () => window.removeEventListener("auth:expired", handleExpired);
   }, [resetFinanceState]);
 
-  const handleUnlocked = useCallback(
-    async () => {
-      setIsInitializing(true);
+  const handleUnlocked = useCallback(async () => {
+    setIsInitializing(true);
 
-      try {
-        await loadFinanceData();
-        setIsUnlocked(true);
-      } catch (error) {
-        console.error("Initial data load failed:", error);
-        setSyncStatus("API Error");
-        setIsError(true);
-      } finally {
-        setIsInitializing(false);
-      }
-    },
-    [loadFinanceData],
-  );
+    try {
+      await loadFinanceData();
+      setIsUnlocked(true);
+    } catch (error) {
+      console.error("Initial data load failed:", error);
+      setSyncStatus("API Error");
+      setIsError(true);
+    } finally {
+      setIsInitializing(false);
+    }
+  }, [loadFinanceData]);
 
   const handleDeleteTransaction = async (idToDelete: number) => {
     const previousTransactions = transactions;
     const previousAccounts = accounts;
 
     setTransactions((currentTransactions) =>
-      currentTransactions.filter((transaction) => transaction.id !== idToDelete)
+      currentTransactions.filter(
+        (transaction) => transaction.id !== idToDelete,
+      ),
     );
 
     try {
@@ -709,11 +738,13 @@ export default function App() {
     const previousAccounts = accounts;
 
     setAccounts((currentAccounts) =>
-      currentAccounts.filter((account) => account.id !== idToDelete)
+      currentAccounts.filter((account) => account.id !== idToDelete),
     );
 
     try {
-      await api.delete<Record<string, never>>(`accounts/delete.php?id=${idToDelete}`);
+      await api.delete<Record<string, never>>(
+        `accounts/delete.php?id=${idToDelete}`,
+      );
       await loadFinanceData();
     } catch (error) {
       console.error("Account delete failed:", error);
@@ -726,10 +757,14 @@ export default function App() {
   const handleDeleteLoan = async (idToDelete: number) => {
     const previousLoans = loans;
 
-    setLoans((currentLoans) => currentLoans.filter((loan) => loan.id !== idToDelete));
+    setLoans((currentLoans) =>
+      currentLoans.filter((loan) => loan.id !== idToDelete),
+    );
 
     try {
-      await api.delete<Record<string, never>>(`loans/delete.php?id=${idToDelete}`);
+      await api.delete<Record<string, never>>(
+        `loans/delete.php?id=${idToDelete}`,
+      );
       setSyncStatus("API Synced");
       setIsError(false);
     } catch (error) {
@@ -748,7 +783,9 @@ export default function App() {
     date: string;
     category: string;
   }) => {
-    const selectedAccount = accounts.find((account) => account.name === newTx.account);
+    const selectedAccount = accounts.find(
+      (account) => account.name === newTx.account,
+    );
 
     if (!selectedAccount) {
       setSyncStatus("Select an account");
@@ -789,7 +826,9 @@ export default function App() {
 
       setTransactions((currentTransactions) => [
         response.data.transaction,
-        ...currentTransactions.filter((transaction) => transaction.id !== optimisticId),
+        ...currentTransactions.filter(
+          (transaction) => transaction.id !== optimisticId,
+        ),
       ]);
       setAccounts(response.data.accounts);
       setSyncStatus("API Synced");
@@ -797,7 +836,9 @@ export default function App() {
     } catch (error) {
       console.error("Transaction save failed:", error);
       setTransactions((currentTransactions) =>
-        currentTransactions.filter((transaction) => transaction.id !== optimisticId)
+        currentTransactions.filter(
+          (transaction) => transaction.id !== optimisticId,
+        ),
       );
       setSyncStatus("API Error");
       setIsError(true);
@@ -810,13 +851,19 @@ export default function App() {
       return;
 
     try {
-      const response = await api.post<AccountMutationResponse>("accounts/create.php", {
-        name: newAccName,
-        balance: parseFloat(newAccBalance),
-        type: newAccType,
-      });
+      const response = await api.post<AccountMutationResponse>(
+        "accounts/create.php",
+        {
+          name: newAccName,
+          balance: parseFloat(newAccBalance),
+          type: newAccType,
+        },
+      );
 
-      setAccounts((currentAccounts) => [...currentAccounts, response.data.account]);
+      setAccounts((currentAccounts) => [
+        ...currentAccounts,
+        response.data.account,
+      ]);
       setNewAccName("");
       setNewAccBalance("");
       setIsNewAccountModalOpen(false);
@@ -841,12 +888,15 @@ export default function App() {
         : total;
 
     try {
-      const response = await api.post<LoanMutationResponse>("loans/create.php", {
-        name: newLoanName,
-        total,
-        remaining,
-        type: newLoanType,
-      });
+      const response = await api.post<LoanMutationResponse>(
+        "loans/create.php",
+        {
+          name: newLoanName,
+          total,
+          remaining,
+          type: newLoanType,
+        },
+      );
 
       setLoans((currentLoans) => [...currentLoans, response.data.loan]);
       setNewLoanName("");
@@ -864,7 +914,7 @@ export default function App() {
 
   const totalBalance = accounts.reduce(
     (sum, account) => sum + account.balance,
-    0
+    0,
   );
   const calculatedIncome = transactions
     .filter((t) => t.type === "income")
@@ -882,12 +932,13 @@ export default function App() {
             <div className="mx-4 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[28px] p-6 text-white shadow-xl shadow-blue-600/20 relative overflow-hidden">
               {/* Soft decorative glow */}
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-[80px] pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
-              
+
               <p className="text-blue-100 text-sm font-medium tracking-wide mb-1">
                 Total Net Balance
               </p>
               <h2 className="text-4xl font-extrabold tracking-tight mb-8">
-                {formatMMK(totalBalance)} <span className="text-2xl font-semibold opacity-80">MMK</span>
+                {formatMMK(totalBalance)}{" "}
+                <span className="text-2xl font-semibold opacity-80">MMK</span>
               </h2>
 
               <div className="grid grid-cols-2 gap-4">
@@ -912,11 +963,15 @@ export default function App() {
 
             {isError && (
               <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex gap-3 items-start mx-4">
-                <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+                <AlertTriangle
+                  size={18}
+                  className="text-red-500 shrink-0 mt-0.5"
+                />
                 <div className="text-xs text-red-800 space-y-1">
                   <p className="font-bold">Sync Error: {syncStatus}</p>
                   <p className="text-red-700/90 leading-relaxed">
-                    Check your API URL, database credentials, or enter your PIN again.
+                    Check your API URL, database credentials, or enter your PIN
+                    again.
                   </p>
                 </div>
               </div>
@@ -979,7 +1034,7 @@ export default function App() {
                   See All
                 </button>
               </div>
-              
+
               <div className="bg-white rounded-[28px] shadow-[0_2px_16px_rgba(0,0,0,0.03)] border border-zinc-100 overflow-hidden">
                 {transactions.slice(0, 4).map((tx, index) => (
                   <SwipeableItem
@@ -1296,7 +1351,9 @@ export default function App() {
                     <div className="w-full bg-zinc-100 rounded-full h-2.5 overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${
-                          loan.type === "borrowed" ? "bg-red-500" : "bg-emerald-500"
+                          loan.type === "borrowed"
+                            ? "bg-red-500"
+                            : "bg-emerald-500"
                         }`}
                         style={{
                           width: `${
@@ -1360,7 +1417,9 @@ export default function App() {
                         onChange={(e) => setNewLoanType(e.target.value)}
                         className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-3 px-4 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition text-sm"
                       >
-                        <option value="borrowed">I borrowed money (Debt)</option>
+                        <option value="borrowed">
+                          I borrowed money (Debt)
+                        </option>
                         <option value="lent">I lent money (Owes me)</option>
                       </select>
                     </div>
@@ -1439,6 +1498,7 @@ export default function App() {
           }
           syncStatus={syncStatus}
           isError={isError}
+          onSync={loadFinanceData}
         />
 
         {/* Dynamic padding: enough space so lists scroll past the nav + floating button */}
