@@ -4,6 +4,7 @@ import {
   CreditCard,
   PieChart,
   Plus,
+  ArrowRightLeft,
   X,
   History,
   Landmark,
@@ -95,22 +96,31 @@ interface AccountMutationResponse {
   account: AccountData;
 }
 
-// --- Formatting Helper (MMK) ---
+// --- Formatting Helpers (MMK) ---
 const formatMMK = (num: number) => {
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 0,
   }).format(num);
 };
 
+const formatInputValue = (val: string) => {
+  const numericString = val.replace(/[^0-9]/g, "");
+  if (!numericString) return "";
+  return new Intl.NumberFormat("en-US").format(parseInt(numericString, 10));
+};
+
+const parseInputValue = (val: string) => {
+  if (!val) return 0;
+  return parseFloat(val.replace(/,/g, ""));
+};
+
 const getErrorMessage = (error: unknown) => {
   if (error instanceof ApiError) {
     return error.message;
   }
-
   if (error instanceof Error) {
     return error.message;
   }
-
   return "Something went wrong.";
 };
 
@@ -139,7 +149,6 @@ const SwipeableItem = ({
   const handleMove = (clientX: number) => {
     if (!isDragging || startX === null) return;
     const diff = clientX - startX;
-
     const newX = startOffset + diff;
 
     if (newX < 0) {
@@ -357,13 +366,14 @@ const AddTransactionModal = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || isNaN(parseFloat(amount))) return;
+    const parsedAmount = parseInputValue(amount);
+    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) return;
 
     const finalAccount =
       account || (accounts.length > 0 ? accounts[0].name : "");
 
     onAdd({
-      amount: parseFloat(amount),
+      amount: parsedAmount,
       type,
       desc,
       account: finalAccount,
@@ -426,12 +436,12 @@ const AddTransactionModal = ({
             </label>
             <div className="relative">
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => setAmount(formatInputValue(e.target.value))}
                 className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-3 px-4 text-2xl font-bold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
                 placeholder="0"
-                step="1"
                 required
               />
             </div>
@@ -478,6 +488,211 @@ const AddTransactionModal = ({
           >
             Log This {type === "expense" ? "Expense" : "Income"}
           </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// --- NEW: Transfer Modal ---
+const TransferModal = ({
+  isOpen,
+  onClose,
+  onTransfer,
+  accounts,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onTransfer: (data: {
+    fromAccountId: number;
+    toAccountId: number;
+    amount: number;
+    desc: string;
+  }) => Promise<void>;
+  accounts: AccountData[];
+}) => {
+  const [selectedFromAcc, setFromAcc] = useState<string | null>(null);
+  const [selectedToAcc, setToAcc] = useState<string | null>(null);
+  const [amount, setAmount] = useState("");
+  const [desc, setDesc] = useState("");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const fromAcc =
+    selectedFromAcc ?? (accounts.length > 0 ? accounts[0].id.toString() : "");
+  const toAcc =
+    selectedToAcc ??
+    (accounts.length > 1
+      ? accounts[1].id.toString()
+      : accounts.length > 0
+        ? accounts[0].id.toString()
+        : "");
+
+  if (!isOpen) return null;
+
+  const handleClose = () => {
+    setAmount("");
+    setDesc("");
+    setError("");
+    setFromAcc(null);
+    setToAcc(null);
+    onClose();
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedAmount = parseInputValue(amount);
+    if (fromAcc === toAcc) {
+      setError("Cannot transfer to the same account.");
+      return;
+    }
+    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
+      setError("Please enter a valid amount greater than zero.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      await onTransfer({
+        fromAccountId: parseInt(fromAcc),
+        toAccountId: parseInt(toAcc),
+        amount: parsedAmount,
+        desc: desc,
+      });
+      handleClose();
+    } catch {
+      setError("Transfer failed. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm z-50 flex items-end justify-center p-0 z-[60]">
+      <div
+        className="bg-white w-full max-w-md rounded-t-[2rem] p-6 shadow-2xl animate-slide-up border border-zinc-100 max-h-[85vh] overflow-y-auto"
+        style={{ paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}
+      >
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-2">
+            <div className="bg-indigo-100 text-indigo-600 p-1.5 rounded-lg">
+              <ArrowRightLeft size={18} />
+            </div>
+            <h2 className="text-xl font-bold text-zinc-900">Transfer Funds</h2>
+          </div>
+          <button
+            onClick={handleClose}
+            className="text-zinc-400 hover:text-zinc-600 bg-zinc-100 hover:bg-zinc-200 transition rounded-full p-1.5"
+            disabled={isSubmitting}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl flex items-center gap-2 text-sm font-medium">
+            <AlertTriangle size={16} />
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4 pb-10">
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">
+              From Account
+            </label>
+            <select
+              value={fromAcc}
+              onChange={(e) => {
+                setFromAcc(e.target.value);
+                setError("");
+              }}
+              className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-3 px-4 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm font-semibold"
+              disabled={isSubmitting}
+            >
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.name} ({formatMMK(acc.balance)} MMK)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex justify-center -my-2 relative z-10">
+            <div className="bg-white p-1 rounded-full border border-zinc-100 shadow-sm">
+              <ArrowRightLeft size={16} className="text-zinc-400 rotate-90" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">
+              To Account
+            </label>
+            <select
+              value={toAcc}
+              onChange={(e) => {
+                setToAcc(e.target.value);
+                setError("");
+              }}
+              className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-3 px-4 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm font-semibold"
+              disabled={isSubmitting}
+            >
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1 mt-2">
+              Amount (MMK)
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={amount}
+              onChange={(e) => {
+                setAmount(formatInputValue(e.target.value));
+                setError("");
+              }}
+              className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-3 px-4 text-2xl font-bold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+              placeholder="0"
+              required
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">
+              Notes (Optional)
+            </label>
+            <input
+              type="text"
+              value={desc}
+              onChange={(e) => setDesc(e.target.value)}
+              className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-3 px-4 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm"
+              placeholder="e.g. Saving for rent"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting || accounts.length < 2}
+            className="w-full py-3.5 rounded-xl text-white font-bold text-sm tracking-wide mt-4 shadow-lg transition-all active:scale-95 bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20 disabled:opacity-50 disabled:active:scale-100"
+          >
+            {isSubmitting ? "Processing..." : "Confirm Transfer"}
+          </button>
+
+          {accounts.length < 2 && (
+            <p className="text-center text-xs text-red-500 mt-2 font-medium">
+              You need at least 2 accounts to make a transfer.
+            </p>
+          )}
         </form>
       </div>
     </div>
@@ -593,6 +808,7 @@ export default function App() {
   const [loans, setLoans] = useState<LoanData[]>([]);
   const [categories, setCategories] = useState<CategoryData[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
 
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [syncStatus, setSyncStatus] = useState("Connecting...");
@@ -617,9 +833,7 @@ export default function App() {
     setCategories([]);
   }, []);
 
-
-  
- const loadFinanceData = useCallback(async () => {
+  const loadFinanceData = useCallback(async () => {
     setSyncStatus("Syncing...");
 
     // Generate a unique timestamp for cache-busting
@@ -643,8 +857,6 @@ export default function App() {
     setCategories(categoriesResponse.data.categories);
     setSyncStatus("API Synced");
     setIsError(false);
-
-    
   }, []);
 
   // --- Auto-Refresh on iOS App Resume ---
@@ -653,7 +865,7 @@ export default function App() {
       // If the app just came back to the screen AND the user is logged in
       if (document.visibilityState === "visible" && isUnlocked) {
         // Silently fetch the latest data in the background
-        loadFinanceData(); 
+        loadFinanceData();
       }
     };
 
@@ -664,7 +876,7 @@ export default function App() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [isUnlocked, loadFinanceData]);
-  
+
   useEffect(() => {
     let cancelled = false;
 
@@ -870,17 +1082,40 @@ export default function App() {
     }
   };
 
+  const handleTransferAction = async (transferData: {
+    fromAccountId: number;
+    toAccountId: number;
+    amount: number;
+    desc: string;
+  }) => {
+    const fromAcc = accounts.find((a) => a.id === transferData.fromAccountId);
+    const toAcc = accounts.find((a) => a.id === transferData.toAccountId);
+
+    if (!fromAcc || !toAcc) {
+      throw new Error("Invalid accounts selected.");
+    }
+
+    // Only send the fields your PHP backend now processes
+    await api.post("transactions/transfer.php", {
+      from_account_id: fromAcc.id,
+      to_account_id: toAcc.id,
+      amount: transferData.amount,
+    });
+
+    await loadFinanceData();
+  };
+
   const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAccName || !newAccBalance || isNaN(parseFloat(newAccBalance)))
-      return;
+    const parsedBalance = parseInputValue(newAccBalance);
+    if (!newAccName || !newAccBalance || isNaN(parsedBalance)) return;
 
     try {
       const response = await api.post<AccountMutationResponse>(
         "accounts/create.php",
         {
           name: newAccName,
-          balance: parseFloat(newAccBalance),
+          balance: parsedBalance,
           type: newAccType,
         },
       );
@@ -903,13 +1138,13 @@ export default function App() {
 
   const handleAddLoan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newLoanName || !newLoanTotal || isNaN(parseFloat(newLoanTotal)))
-      return;
+    const parsedTotal = parseInputValue(newLoanTotal);
+    if (!newLoanName || !newLoanTotal || isNaN(parsedTotal)) return;
 
-    const total = parseFloat(newLoanTotal);
+    const total = parsedTotal;
     const remaining =
-      newLoanRemaining && !isNaN(parseFloat(newLoanRemaining))
-        ? parseFloat(newLoanRemaining)
+      newLoanRemaining && !isNaN(parseInputValue(newLoanRemaining))
+        ? parseInputValue(newLoanRemaining)
         : total;
 
     try {
@@ -1130,13 +1365,22 @@ export default function App() {
                   Manage bank balances & wallets
                 </p>
               </div>
-              <button
-                onClick={() => setIsNewAccountModalOpen(true)}
-                className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-2.5 rounded-xl shadow-sm shadow-blue-500/10 transition-all active:scale-95"
-              >
-                <PlusCircle size={16} />
-                Add
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsTransferModalOpen(true)}
+                  className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-2.5 rounded-xl shadow-sm transition-all active:scale-95 border border-indigo-100"
+                >
+                  <ArrowRightLeft size={16} />
+                  Transfer
+                </button>
+                <button
+                  onClick={() => setIsNewAccountModalOpen(true)}
+                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-2.5 rounded-xl shadow-sm shadow-blue-500/10 transition-all active:scale-95"
+                >
+                  <PlusCircle size={16} />
+                  Add
+                </button>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -1221,12 +1465,14 @@ export default function App() {
                       </label>
                       <div className="relative">
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           value={newAccBalance}
-                          onChange={(e) => setNewAccBalance(e.target.value)}
+                          onChange={(e) =>
+                            setNewAccBalance(formatInputValue(e.target.value))
+                          }
                           className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-3 px-4 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition text-lg font-bold tracking-tight"
                           placeholder="0"
-                          step="1"
                           required
                         />
                       </div>
@@ -1454,12 +1700,14 @@ export default function App() {
                           Total Amount
                         </label>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           value={newLoanTotal}
-                          onChange={(e) => setNewLoanTotal(e.target.value)}
+                          onChange={(e) =>
+                            setNewLoanTotal(formatInputValue(e.target.value))
+                          }
                           className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-3 px-4 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition text-base font-bold tracking-tight"
                           placeholder="0"
-                          step="1"
                           required
                         />
                       </div>
@@ -1468,12 +1716,16 @@ export default function App() {
                           Remaining
                         </label>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           value={newLoanRemaining}
-                          onChange={(e) => setNewLoanRemaining(e.target.value)}
+                          onChange={(e) =>
+                            setNewLoanRemaining(
+                              formatInputValue(e.target.value),
+                            )
+                          }
                           className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-3 px-4 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition text-base font-bold tracking-tight"
                           placeholder="(Optional)"
-                          step="1"
                         />
                       </div>
                     </div>
@@ -1531,27 +1783,40 @@ export default function App() {
           {renderView()}
         </main>
 
-        {!isAddModalOpen && !isNewAccountModalOpen && !isNewLoanModalOpen && (
-          <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
-        )}
+        {!isAddModalOpen &&
+          !isNewAccountModalOpen &&
+          !isNewLoanModalOpen &&
+          !isTransferModalOpen && (
+            <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+          )}
 
         {/* The overlapping center Action button */}
-        {!isAddModalOpen && !isNewAccountModalOpen && !isNewLoanModalOpen && (
-          <div className="absolute bottom-6 left-0 right-0 pointer-events-none flex justify-center z-[45]">
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="pointer-events-auto w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-[0_8px_30px_rgba(37,99,235,0.4)] flex items-center justify-center transition-transform active:scale-95 border-4 border-white"
-              aria-label="New transaction entry"
-            >
-              <Plus size={28} strokeWidth={2.5} />
-            </button>
-          </div>
-        )}
+        {!isAddModalOpen &&
+          !isNewAccountModalOpen &&
+          !isNewLoanModalOpen &&
+          !isTransferModalOpen && (
+            <div className="absolute bottom-6 left-0 right-0 pointer-events-none flex justify-center z-[45]">
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="pointer-events-auto w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-[0_8px_30px_rgba(37,99,235,0.4)] flex items-center justify-center transition-transform active:scale-95 border-4 border-white"
+                aria-label="New transaction entry"
+              >
+                <Plus size={28} strokeWidth={2.5} />
+              </button>
+            </div>
+          )}
 
         <AddTransactionModal
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
           onAdd={handleAddTransaction}
+          accounts={accounts}
+        />
+
+        <TransferModal
+          isOpen={isTransferModalOpen}
+          onClose={() => setIsTransferModalOpen(false)}
+          onTransfer={handleTransferAction}
           accounts={accounts}
         />
       </div>
