@@ -16,6 +16,7 @@ import {
   RefreshCw,
   PiggyBank,
   Pencil,
+  Archive,
 } from "lucide-react";
 import "./App.css";
 
@@ -68,6 +69,16 @@ interface CategoryData {
   id: number;
   name: string;
   type: string;
+}
+
+interface MonthlySummaryData {
+  id: number;
+  year: number;
+  month: number;
+  total_income: string | number;
+  total_expense: string | number;
+  net_savings: string | number;
+  notes?: string | null;
 }
 
 interface PinResponse {
@@ -266,10 +277,7 @@ const Sheet = ({
       if (e.target === e.currentTarget) onClose();
     }}
   >
-    <div
-      className="finance-sheet"
-      onMouseDown={(e) => e.stopPropagation()}
-    >
+    <div className="finance-sheet" onMouseDown={(e) => e.stopPropagation()}>
       {children}
     </div>
   </div>
@@ -421,9 +429,7 @@ const TransferModal = ({
 
   const fromId = from || accounts[0]?.id.toString() || "";
   const toId =
-    to ||
-    (accounts[1]?.id ?? accounts[0]?.id)?.toString() ||
-    "";
+    to || (accounts[1]?.id ?? accounts[0]?.id)?.toString() || "";
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -526,6 +532,99 @@ const TransferModal = ({
   );
 };
 
+const CloseMonthModal = ({
+  open,
+  onClose,
+  onCloseMonth,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCloseMonth: (data: { year: number; month: number; notes: string }) => Promise<void>;
+}) => {
+  const [year, setYear] = useState(new Date().getFullYear().toString());
+  const [month, setMonth] = useState((new Date().getMonth() + 1).toString());
+  const [notes, setNotes] = useState("");
+  const [error, setError] = useState("");
+
+  if (!open) return null;
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const y = parseInt(year, 10);
+    const m = parseInt(month, 10);
+
+    if (!y || !m || m < 1 || m > 12) {
+      setError("Please enter a valid year and month (1-12).");
+      return;
+    }
+
+    try {
+      await onCloseMonth({ year: y, month: m, notes });
+      setNotes("");
+      onClose();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  return (
+    <Sheet onClose={onClose}>
+      <div className="sheet-header">
+        <div>
+          <span className="sheet-eyebrow">ARCHIVE</span>
+          <h2>Close Month</h2>
+        </div>
+        <button className="sheet-close" onClick={onClose}>
+          <X size={18} />
+        </button>
+      </div>
+
+      {error && <div className="form-error">{error}</div>}
+
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="finance-label">Year</label>
+            <input
+              className="finance-input"
+              type="number"
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="finance-label">Month (1-12)</label>
+            <input
+              className="finance-input"
+              type="number"
+              min="1"
+              max="12"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="finance-label">Notes (Optional)</label>
+          <input
+            className="finance-input"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="e.g., End of Month Snapshot"
+          />
+        </div>
+
+        <button className="primary-action transfer" type="submit">
+          Save Snapshot
+        </button>
+      </form>
+    </Sheet>
+  );
+};
+
 const PinScreen = ({ onUnlocked }: { onUnlocked: () => Promise<void> }) => {
   const [pin, setPin] = useState("");
   const [remember, setRemember] = useState<24 | 48>(48);
@@ -616,6 +715,11 @@ export default function App() {
   const [loans, setLoans] = useState<LoanData[]>([]);
   const [categories, setCategories] = useState<CategoryData[]>([]);
   const [savings, setSavings] = useState<SavingsData[]>([]);
+  const [archives, setArchives] = useState<MonthlySummaryData[]>([]);
+  const [archiveDebug, setArchiveDebug] = useState<string>("");
+
+  const [historyTab, setHistoryTab] = useState<"transactions" | "archives">("transactions");
+  const [closeMonthModalOpen, setCloseMonthModalOpen] = useState(false);
 
   const [unlocked, setUnlocked] = useState(false);
   const [initializing, setInitializing] = useState(true);
@@ -649,26 +753,65 @@ export default function App() {
   const loadFinanceData = useCallback(async () => {
     setSyncStatus("Syncing...");
     const t = Date.now();
+    
+    // Set up direct bypass variables for the archives fetch
+    const token = getAuthToken();
+    const apiBase = import.meta.env.VITE_API_BASE_URL || '/finance-app/api';
+
+    // NEW: Native fetch bypasses the wrapper completely for the archives endpoint
+    const archivesPromise = fetch(`${apiBase}/monthly/index.php?_t=${t}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      }
+    }).then(res => {
+      if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+      return res.json();
+    });
 
     const [
-      accountsResponse,
-      transactionsResponse,
-      loansResponse,
-      categoriesResponse,
-      savingsResponse,
-    ] = await Promise.all([
+      accountsRes,
+      transactionsRes,
+      loansRes,
+      categoriesRes,
+      savingsRes,
+      archivesRes,
+    ] = await Promise.allSettled([
       api.get<{ accounts: AccountData[] }>(`accounts/index.php?_t=${t}`),
       api.get<{ transactions: TransactionData[] }>(`transactions/index.php?_t=${t}`),
       api.get<{ loans: LoanData[] }>(`loans/index.php?_t=${t}`),
       api.get<{ categories: CategoryData[] }>(`categories/index.php?_t=${t}`),
       api.get<{ savings: SavingsData[] }>(`savings/index.php?_t=${t}`),
+      archivesPromise,
     ]);
 
-    setAccounts(accountsResponse.data.accounts);
-    setTransactions(transactionsResponse.data.transactions);
-    setLoans(loansResponse.data.loans);
-    setCategories(categoriesResponse.data.categories);
-    setSavings(savingsResponse.data.savings);
+    if (accountsRes.status === "fulfilled") setAccounts(accountsRes.value.data.accounts || []);
+    if (transactionsRes.status === "fulfilled") setTransactions(transactionsRes.value.data.transactions || []);
+    if (loansRes.status === "fulfilled") setLoans(loansRes.value.data.loans || []);
+    if (categoriesRes.status === "fulfilled") setCategories(categoriesRes.value.data.categories || []);
+    if (savingsRes.status === "fulfilled") setSavings(savingsRes.value.data.savings || []);
+    
+    // Direct Data Processing from the bypassed fetch
+    if (archivesRes.status === "fulfilled") {
+      try {
+        const payload = archivesRes.value; 
+        
+        let list: any = [];
+        if (Array.isArray(payload)) list = payload;
+        else if (Array.isArray(payload?.data)) list = payload.data;
+        else if (Array.isArray(payload?.archives)) list = payload.archives;
+        else if (Array.isArray(payload?.summaries)) list = payload.summaries;
+        setArchives(list);
+        setArchiveDebug("OK");
+      } catch (e) {
+        setArchives([]);
+        setArchiveDebug("Extraction error: " + (e as Error).message);
+      }
+    } else {
+      setArchives([]);
+      setArchiveDebug("Native Fetch Rejected: " + String(archivesRes.reason));
+    }
+
     setSyncStatus("API Synced");
     setIsError(false);
   }, []);
@@ -703,6 +846,7 @@ export default function App() {
       setLoans([]);
       setCategories([]);
       setSavings([]);
+      setArchives([]);
       setSyncStatus("Session expired");
       setIsError(true);
     };
@@ -777,6 +921,24 @@ export default function App() {
     }
   };
 
+  const unarchiveMonth = async (id: number) => {
+    const oldArchives = archives;
+    setArchives((items) => items.filter((item) => item.id !== id));
+    try {
+      await api.delete(`monthly/delete.php?id=${id}`);
+    } catch (error) {
+      // NEW: Intercept fake errors on unarchive just like we do on save
+      const msg = errorMessage(error);
+      if (!msg.toLowerCase().includes("success")) {
+        setArchives(oldArchives);
+        setIsError(true);
+        setSyncStatus("API Error");
+        return;
+      }
+    }
+    await loadFinanceData();
+  };
+
   const addTransaction = async (data: {
     amount: number;
     type: string;
@@ -821,6 +983,18 @@ export default function App() {
       to_account_id: data.toAccountId,
       amount: data.amount,
     });
+    await loadFinanceData();
+  };
+
+  const closeMonth = async (data: { year: number; month: number; notes: string }) => {
+    try {
+      await api.post("monthly/close.php", data);
+    } catch (error) {
+      const msg = errorMessage(error);
+      if (!msg.toLowerCase().includes("success")) {
+        throw error; 
+      }
+    }
     await loadFinanceData();
   };
 
@@ -1145,48 +1319,132 @@ export default function App() {
 
   const renderHistory = () => (
     <div className="page-content">
-      <div className="subheader-block">
-        <h2>Ledger History</h2>
-        <p>Swipe left to delete a transaction</p>
+      <div className="subheader-row">
+        <p>Ledger & Monthly Archives</p>
+        <button
+          className="plans-add-button"
+          onClick={() => setCloseMonthModalOpen(true)}
+        >
+          <Archive size={15} />
+          Close Month
+        </button>
       </div>
 
-      <div className="transaction-card">
-        {transactions.map((tx, index) => (
-          <SwipeableItem
-            key={tx.id}
-            onDelete={() => deleteTransaction(tx.id)}
-            className={index ? "transaction-divider" : ""}
-          >
-            <div className="transaction-row">
-              <div
-                className={`transaction-icon ${
-                  tx.type === "expense" ? "expense" : "income"
-                }`}
-              >
-                {tx.type === "expense" ? (
-                  <TrendingDown size={18} />
-                ) : (
-                  <TrendingUp size={18} />
-                )}
-              </div>
-              <div className="transaction-info">
-                <strong>{tx.desc || "Transaction"}</strong>
-                <span>
-                  {tx.account} · {tx.category} · {formatDate(tx.date)}
-                </span>
-              </div>
-              <strong
-                className={`transaction-amount ${
-                  tx.type === "expense" ? "expense" : "income"
-                }`}
-              >
-                {tx.type === "expense" ? "-" : "+"}
-                {formatMMK(tx.amount)}
-              </strong>
-            </div>
-          </SwipeableItem>
-        ))}
+      <div className="plans-segmented">
+        <button
+          className={historyTab === "transactions" ? "active" : ""}
+          onClick={() => setHistoryTab("transactions")}
+        >
+          <History size={15} />
+          Transactions
+        </button>
+        <button
+          className={historyTab === "archives" ? "active" : ""}
+          onClick={() => setHistoryTab("archives")}
+        >
+          <Archive size={15} />
+          Archives
+        </button>
       </div>
+
+      {historyTab === "transactions" ? (
+        <div className="transaction-card">
+          {transactions.map((tx, index) => (
+            <SwipeableItem
+              key={tx.id}
+              onDelete={() => deleteTransaction(tx.id)}
+              className={index ? "transaction-divider" : ""}
+            >
+              <div className="transaction-row">
+                <div
+                  className={`transaction-icon ${
+                    tx.type === "expense" ? "expense" : "income"
+                  }`}
+                >
+                  {tx.type === "expense" ? (
+                    <TrendingDown size={18} />
+                  ) : (
+                    <TrendingUp size={18} />
+                  )}
+                </div>
+                <div className="transaction-info">
+                  <strong>{tx.desc || "Transaction"}</strong>
+                  <span>
+                    {tx.account} · {tx.category} · {formatDate(tx.date)}
+                  </span>
+                </div>
+                <strong
+                  className={`transaction-amount ${
+                    tx.type === "expense" ? "expense" : "income"
+                  }`}
+                >
+                  {tx.type === "expense" ? "-" : "+"}
+                  {formatMMK(tx.amount)}
+                </strong>
+              </div>
+            </SwipeableItem>
+          ))}
+          {!transactions.length && (
+            <div className="empty-state">No transactions recorded yet.</div>
+          )}
+        </div>
+      ) : (
+        <div className="stack-list">
+          {archives.map((archive) => (
+            <SwipeableItem
+              key={archive.id}
+              onDelete={() => unarchiveMonth(archive.id)}
+              className="rounded-3xl border border-zinc-100 shadow-sm"
+            >
+              <div className="bg-white p-4 relative">
+                {/* Visible Unarchive Button */}
+                <button
+                  onClick={() => unarchiveMonth(archive.id)}
+                  className="absolute top-4 right-4 text-red-400 hover:text-red-600 p-1 bg-red-50 rounded-md transition-colors"
+                  title="Unarchive Month"
+                >
+                  <Trash2 size={16} />
+                </button>
+
+                <div className="flex justify-between items-start mb-3 border-b border-gray-100 pb-3 pr-8">
+                  <div>
+                    <strong className="text-sm font-bold block">{archive.year} - Month {archive.month}</strong>
+                    {archive.notes && <span className="text-xs text-gray-500 mt-1 block">{archive.notes}</span>}
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-gray-400 block uppercase font-bold tracking-wider mb-1">Net Savings</span>
+                    <strong className={`text-sm ${Number(archive.net_savings) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {Number(archive.net_savings) >= 0 ? '+' : ''}{formatMMK(Number(archive.net_savings))}
+                    </strong>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-emerald-50 rounded-xl p-3">
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block mb-1">Income</span>
+                    <strong className="text-emerald-600 text-xs">{formatMMK(Number(archive.total_income))}</strong>
+                  </div>
+                  <div className="bg-red-50 rounded-xl p-3">
+                    <span className="text-[10px] font-bold text-red-700 uppercase tracking-wider block mb-1">Expense</span>
+                    <strong className="text-red-500 text-xs">{formatMMK(Number(archive.total_expense))}</strong>
+                  </div>
+                </div>
+              </div>
+            </SwipeableItem>
+          ))}
+          {!archives.length && (
+            <div className="empty-state">
+              <p className="mb-2">No months have been closed yet.</p>
+              {archiveDebug !== "OK" && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg text-left">
+                  <p className="text-[10px] font-bold text-red-800 uppercase tracking-wider mb-1">Debug Output:</p>
+                  <p className="text-[10px] text-red-600 font-mono break-all">{archiveDebug}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -1394,7 +1652,12 @@ export default function App() {
   }
 
   const anyModal =
-    addOpen || transferOpen || accountModal || loanModal || savingsModal;
+    addOpen ||
+    transferOpen ||
+    accountModal ||
+    loanModal ||
+    savingsModal ||
+    closeMonthModalOpen;
 
   return (
     <div className="app-outer">
@@ -1452,7 +1715,10 @@ export default function App() {
                 <span className="sheet-eyebrow">ACCOUNT</span>
                 <h2>Add Account</h2>
               </div>
-              <button className="sheet-close" onClick={() => setAccountModal(false)}>
+              <button
+                className="sheet-close"
+                onClick={() => setAccountModal(false)}
+              >
                 <X size={18} />
               </button>
             </div>
@@ -1504,7 +1770,12 @@ export default function App() {
         )}
 
         {loanModal && (
-          <Sheet onClose={() => { setLoanModal(false); resetLoan(); }}>
+          <Sheet
+            onClose={() => {
+              setLoanModal(false);
+              resetLoan();
+            }}
+          >
             <div className="sheet-header">
               <div>
                 <span className="sheet-eyebrow">LOANS & BORROWING</span>
@@ -1512,7 +1783,10 @@ export default function App() {
               </div>
               <button
                 className="sheet-close"
-                onClick={() => { setLoanModal(false); resetLoan(); }}
+                onClick={() => {
+                  setLoanModal(false);
+                  resetLoan();
+                }}
               >
                 <X size={18} />
               </button>
@@ -1578,7 +1852,12 @@ export default function App() {
         )}
 
         {savingsModal && (
-          <Sheet onClose={() => { setSavingsModal(false); resetSaving(); }}>
+          <Sheet
+            onClose={() => {
+              setSavingsModal(false);
+              resetSaving();
+            }}
+          >
             <div className="sheet-header">
               <div>
                 <span className="sheet-eyebrow green-eyebrow">SAVINGS</span>
@@ -1588,7 +1867,10 @@ export default function App() {
               </div>
               <button
                 className="sheet-close"
-                onClick={() => { setSavingsModal(false); resetSaving(); }}
+                onClick={() => {
+                  setSavingsModal(false);
+                  resetSaving();
+                }}
               >
                 <X size={18} />
               </button>
@@ -1649,6 +1931,12 @@ export default function App() {
             </form>
           </Sheet>
         )}
+
+        <CloseMonthModal
+          open={closeMonthModalOpen}
+          onClose={() => setCloseMonthModalOpen(false)}
+          onCloseMonth={closeMonth}
+        />
       </div>
     </div>
   );

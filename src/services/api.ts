@@ -101,3 +101,41 @@ export const api = {
   put: <T>(endpoint: string, body?: RequestBody) => request<T>("PUT", endpoint, body),
   delete: <T>(endpoint: string) => request<T>("DELETE", endpoint),
 };
+
+export interface MonthlySummaryData {
+  id: number;
+  year: number;
+  month: number;
+  total_income: string;
+  total_expense: string;
+  net_savings: string;
+  account_snapshot: Array<{
+    id: number;
+    name: string;
+    type: string;
+    balance: string;
+    color: string;
+    bg: string;
+  }>;
+  category_breakdown: Array<{
+    category_name: string;
+    type: 'income' | 'expense';
+    total_amount: string;
+  }>;
+  notes: string | null;
+  closed_at: string;
+}
+
+export const closeMonthArchive = async (year: number, month: number, notes?: string) => {
+  const response = await fetch('/api/monthly/close.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ year, month, notes }),
+  });
+  return response.json();
+};
+
+export const getMonthlyArchives = async (): Promise<{ status: string; data: MonthlySummaryData[] }> => {
+  const response = await fetch('/api/monthly/index.php');
+  return response.json();
+};
