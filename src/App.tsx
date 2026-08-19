@@ -123,6 +123,7 @@ const errorMessage = (error: unknown) => {
   return "Something went wrong.";
 };
 
+/* UPGRADED: Sleek Swipeable Item to prevent glass color bleed */
 const SwipeableItem = ({
   children,
   onDelete,
@@ -154,21 +155,25 @@ const SwipeableItem = ({
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
-      <div className="absolute inset-y-0 right-0 w-20 bg-red-500 flex items-center justify-center">
+      {/* Background action layer is only visible during swipe */}
+      <div
+        className="absolute inset-y-0 right-0 w-24 flex items-center justify-end pr-5 transition-opacity duration-200"
+        style={{ opacity: offset < -10 ? 1 : 0 }}
+      >
         <button
           onClick={onDelete}
-          className="w-full h-full flex items-center justify-center text-white"
+          className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white shadow-md active:scale-[0.96] transition-transform"
           aria-label="Delete"
         >
-          <Trash2 size={19} />
+          <Trash2 size={18} />
         </button>
       </div>
 
       <div
-        className="relative bg-white"
+        className="relative z-10 w-full h-full"
         style={{
           transform: `translateX(${offset}px)`,
-          transition: dragging ? "none" : "transform 220ms ease",
+          transition: dragging ? "none" : "transform 250ms cubic-bezier(0.2, 0, 0, 1)",
           touchAction: "pan-y",
         }}
         onTouchStart={(e) => start(e.touches[0].clientX)}
@@ -212,7 +217,10 @@ const TopBar = ({
         />
       </button>
 
-      <span className={`sync-status ${isError ? "error" : ""}`}>
+      {/* NEW: Dynamic classes for the new glowing pill design */}
+      <span 
+        className={`sync-status ${isError ? "error" : syncStatus === "Syncing..." ? "syncing" : ""}`}
+      >
         <span className="sync-dot" />
         {syncStatus}
       </span>
@@ -272,7 +280,7 @@ const Sheet = ({
   onClose: () => void;
 }) => (
   <div
-    className="fixed inset-0 z-[80] bg-zinc-950/55 backdrop-blur-sm flex items-end justify-center"
+    className="fixed inset-0 z-[80] bg-zinc-950/40 backdrop-blur-sm flex items-end justify-center"
     onMouseDown={(e) => {
       if (e.target === e.currentTarget) onClose();
     }}
@@ -653,7 +661,12 @@ const PinScreen = ({ onUnlocked }: { onUnlocked: () => Promise<void> }) => {
 
   return (
     <div className="app-outer">
-      <div className="app-shell pin-shell">
+      <div className="liquid-background">
+        <div className="blob blob-purple"></div>
+        <div className="blob blob-cyan"></div>
+        <div className="blob blob-red"></div>
+      </div>
+      <div className="app-shell pin-shell glass-surface">
         <div className="pin-content">
           <span className="pin-eyebrow">PERSONAL FINANCE</span>
           <h1>Enter PIN</h1>
@@ -754,11 +767,9 @@ export default function App() {
     setSyncStatus("Syncing...");
     const t = Date.now();
     
-    // Set up direct bypass variables for the archives fetch
     const token = getAuthToken();
     const apiBase = import.meta.env.VITE_API_BASE_URL || '/finance-app/api';
 
-    // NEW: Native fetch bypasses the wrapper completely for the archives endpoint
     const archivesPromise = fetch(`${apiBase}/monthly/index.php?_t=${t}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -791,7 +802,6 @@ export default function App() {
     if (categoriesRes.status === "fulfilled") setCategories(categoriesRes.value.data.categories || []);
     if (savingsRes.status === "fulfilled") setSavings(savingsRes.value.data.savings || []);
     
-    // Direct Data Processing from the bypassed fetch
     if (archivesRes.status === "fulfilled") {
       try {
         const payload = archivesRes.value; 
@@ -801,6 +811,7 @@ export default function App() {
         else if (Array.isArray(payload?.data)) list = payload.data;
         else if (Array.isArray(payload?.archives)) list = payload.archives;
         else if (Array.isArray(payload?.summaries)) list = payload.summaries;
+        
         setArchives(list);
         setArchiveDebug("OK");
       } catch (e) {
@@ -927,7 +938,6 @@ export default function App() {
     try {
       await api.delete(`monthly/delete.php?id=${id}`);
     } catch (error) {
-      // NEW: Intercept fake errors on unarchive just like we do on save
       const msg = errorMessage(error);
       if (!msg.toLowerCase().includes("success")) {
         setArchives(oldArchives);
@@ -1198,7 +1208,7 @@ export default function App() {
                   : Landmark;
 
             return (
-              <div className="account-card" key={account.id}>
+              <div className="account-card glass-surface" key={account.id}>
                 <div className={`account-icon ${account.type}`}>
                   <Icon size={20} />
                 </div>
@@ -1216,7 +1226,7 @@ export default function App() {
           <button onClick={() => setActiveTab("history")}>See All</button>
         </div>
 
-        <div className="transaction-card">
+        <div className="transaction-card glass-surface">
           {transactions.slice(0, 5).map((tx, index) => (
             <SwipeableItem
               key={tx.id}
@@ -1298,9 +1308,9 @@ export default function App() {
             <SwipeableItem
               key={account.id}
               onDelete={() => deleteAccount(account.id)}
-              className="rounded-3xl border border-zinc-100 shadow-sm"
+              className="rounded-3xl shadow-sm"
             >
-              <div className="account-list-card">
+              <div className="account-list-card glass-surface rounded-2xl">
                 <div className={`account-icon ${account.type}`}>
                   <Icon size={21} />
                 </div>
@@ -1330,7 +1340,7 @@ export default function App() {
         </button>
       </div>
 
-      <div className="plans-segmented">
+      <div className="plans-segmented glass-surface">
         <button
           className={historyTab === "transactions" ? "active" : ""}
           onClick={() => setHistoryTab("transactions")}
@@ -1348,7 +1358,7 @@ export default function App() {
       </div>
 
       {historyTab === "transactions" ? (
-        <div className="transaction-card">
+        <div className="transaction-card glass-surface">
           {transactions.map((tx, index) => (
             <SwipeableItem
               key={tx.id}
@@ -1394,19 +1404,20 @@ export default function App() {
             <SwipeableItem
               key={archive.id}
               onDelete={() => unarchiveMonth(archive.id)}
-              className="rounded-3xl border border-zinc-100 shadow-sm"
+              className="rounded-3xl shadow-sm"
             >
-              <div className="bg-white p-4 relative">
-                {/* Visible Unarchive Button */}
+              <div className="glass-surface p-4 relative rounded-2xl">
+                
+                {/* Visible Unarchive Button directly on the card */}
                 <button
                   onClick={() => unarchiveMonth(archive.id)}
-                  className="absolute top-4 right-4 text-red-400 hover:text-red-600 p-1 bg-red-50 rounded-md transition-colors"
+                  className="absolute top-4 right-4 text-red-400 hover:text-red-600 p-1 bg-red-50/50 rounded-md transition-transform active:scale-95"
                   title="Unarchive Month"
                 >
                   <Trash2 size={16} />
                 </button>
 
-                <div className="flex justify-between items-start mb-3 border-b border-gray-100 pb-3 pr-8">
+                <div className="flex justify-between items-start mb-3 border-b border-gray-200/50 pb-3 pr-8">
                   <div>
                     <strong className="text-sm font-bold block">{archive.year} - Month {archive.month}</strong>
                     {archive.notes && <span className="text-xs text-gray-500 mt-1 block">{archive.notes}</span>}
@@ -1420,13 +1431,13 @@ export default function App() {
                 </div>
                 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-emerald-50 rounded-xl p-3">
-                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block mb-1">Income</span>
-                    <strong className="text-emerald-600 text-xs">{formatMMK(Number(archive.total_income))}</strong>
+                  <div className="bg-emerald-50/60 rounded-xl p-3 border border-emerald-100/50">
+                    <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block mb-1">Income</span>
+                    <strong className="text-emerald-700 text-xs">{formatMMK(Number(archive.total_income))}</strong>
                   </div>
-                  <div className="bg-red-50 rounded-xl p-3">
-                    <span className="text-[10px] font-bold text-red-700 uppercase tracking-wider block mb-1">Expense</span>
-                    <strong className="text-red-500 text-xs">{formatMMK(Number(archive.total_expense))}</strong>
+                  <div className="bg-red-50/60 rounded-xl p-3 border border-red-100/50">
+                    <span className="text-[10px] font-bold text-red-800 uppercase tracking-wider block mb-1">Expense</span>
+                    <strong className="text-red-700 text-xs">{formatMMK(Number(archive.total_expense))}</strong>
                   </div>
                 </div>
               </div>
@@ -1435,8 +1446,9 @@ export default function App() {
           {!archives.length && (
             <div className="empty-state">
               <p className="mb-2">No months have been closed yet.</p>
-              {archiveDebug !== "OK" && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg text-left">
+              
+              {archiveDebug !== "OK" && archiveDebug !== "" && (
+                <div className="mt-4 p-3 bg-red-50/80 border border-red-200 rounded-lg text-left">
                   <p className="text-[10px] font-bold text-red-800 uppercase tracking-wider mb-1">Debug Output:</p>
                   <p className="text-[10px] text-red-600 font-mono break-all">{archiveDebug}</p>
                 </div>
@@ -1469,7 +1481,7 @@ export default function App() {
         </button>
       </div>
 
-      <div className="plans-segmented">
+      <div className="plans-segmented glass-surface">
         <button
           className={planTab === "loans" ? "active" : ""}
           onClick={() => setPlanTab("loans")}
@@ -1504,9 +1516,9 @@ export default function App() {
               <SwipeableItem
                 key={loan.id}
                 onDelete={() => deleteLoan(loan.id)}
-                className="rounded-3xl border border-zinc-100 shadow-sm"
+                className="rounded-3xl shadow-sm"
               >
-                <div className="plan-card">
+                <div className="plan-card glass-surface rounded-2xl">
                   <div className="plan-card-top">
                     <div>
                       <strong>{loan.name}</strong>
@@ -1562,9 +1574,9 @@ export default function App() {
               <SwipeableItem
                 key={saving.id}
                 onDelete={() => deleteSaving(saving.id)}
-                className="rounded-3xl border border-zinc-100 shadow-sm"
+                className="rounded-3xl shadow-sm"
               >
-                <div className="plan-card">
+                <div className="plan-card glass-surface rounded-2xl">
                   <div className="plan-card-top">
                     <div className="saving-title">
                       <div className="saving-icon">
@@ -1624,8 +1636,13 @@ export default function App() {
   if (initializing) {
     return (
       <div className="app-outer">
-        <div className="app-shell loading-shell">
-          <RefreshCw className="animate-spin text-blue-600" size={28} />
+        <div className="liquid-background">
+          <div className="blob blob-purple"></div>
+          <div className="blob blob-cyan"></div>
+          <div className="blob blob-red"></div>
+        </div>
+        <div className="app-shell loading-shell glass-surface">
+          <RefreshCw className="animate-spin text-indigo-600" size={28} />
           <span>{syncStatus}</span>
         </div>
       </div>
@@ -1661,7 +1678,12 @@ export default function App() {
 
   return (
     <div className="app-outer">
-      <div className="app-shell finance-app-shell">
+      <div className="liquid-background">
+        <div className="blob blob-purple"></div>
+        <div className="blob blob-cyan"></div>
+        <div className="blob blob-red"></div>
+      </div>
+      <div className="app-shell finance-app-shell glass-surface">
         <TopBar
           title={title}
           syncStatus={syncStatus}
