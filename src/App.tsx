@@ -16,13 +16,9 @@ import {
   RefreshCw,
   PiggyBank,
   Pencil,
-<<<<<<< HEAD
   Sun,
   Moon,
   Smartphone,
-=======
-  Archive,
->>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
 } from "lucide-react";
 import "./App.css";
 
@@ -104,16 +100,6 @@ interface CategoryData {
   id: number;
   name: string;
   type: string;
-}
-
-interface MonthlySummaryData {
-  id: number;
-  year: number;
-  month: number;
-  total_income: string | number;
-  total_expense: string | number;
-  net_savings: string | number;
-  notes?: string | null;
 }
 
 interface PinResponse {
@@ -208,7 +194,9 @@ const SwipeableItem = ({
         className="relative z-10 w-full h-full"
         style={{
           transform: `translateX(${offset}px)`,
-          transition: dragging ? "none" : "transform 250ms cubic-bezier(0.2, 0, 0, 1)",
+          transition: dragging
+            ? "none"
+            : "transform 250ms cubic-bezier(0.2, 0, 0, 1)",
           touchAction: "pan-y",
         }}
         onTouchStart={(e) => start(e.touches[0].clientX)}
@@ -246,7 +234,12 @@ const TopBar = ({
     <h1>{title}</h1>
 
     <div className="sync-area">
-      <button className="theme-toggle ios-glass-clear install-icon-button" onClick={onInstallHelp} aria-label="Installation help" title="Install app">
+      <button
+        className="theme-toggle ios-glass-clear install-icon-button"
+        onClick={onInstallHelp}
+        aria-label="Installation help"
+        title="Install app"
+      >
         <Smartphone size={16} />
       </button>
       <button
@@ -269,15 +262,7 @@ const TopBar = ({
           className={syncStatus === "Syncing..." ? "animate-spin" : ""}
         />
       </button>
-<<<<<<< HEAD
       <span className={`sync-status ${isError ? "error" : ""}`}>
-=======
-
-      {/* NEW: Dynamic classes for the new glowing pill design */}
-      <span 
-        className={`sync-status ${isError ? "error" : syncStatus === "Syncing..." ? "syncing" : ""}`}
-      >
->>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
         <span className="sync-dot" />
         {syncStatus}
       </span>
@@ -298,6 +283,7 @@ const BottomNav = ({
   >
     <button
       className={`glass-nav-item ${activeTab === "home" ? "active" : ""}`}
+      aria-current={activeTab === "home" ? "page" : undefined}
       onClick={() => setActiveTab("home")}
     >
       <Home size={20} />
@@ -306,6 +292,7 @@ const BottomNav = ({
 
     <button
       className={`glass-nav-item ${activeTab === "accounts" ? "active" : ""}`}
+      aria-current={activeTab === "accounts" ? "page" : undefined}
       onClick={() => setActiveTab("accounts")}
     >
       <CreditCard size={20} />
@@ -316,6 +303,7 @@ const BottomNav = ({
 
     <button
       className={`glass-nav-item ${activeTab === "records" ? "active" : ""}`}
+      aria-current={activeTab === "records" ? "page" : undefined}
       onClick={() => setActiveTab("records")}
     >
       <History size={20} />
@@ -324,6 +312,7 @@ const BottomNav = ({
 
     <button
       className={`glass-nav-item ${activeTab === "budgets" ? "active" : ""}`}
+      aria-current={activeTab === "budgets" ? "page" : undefined}
       onClick={() => setActiveTab("budgets")}
     >
       <PiggyBank size={20} />
@@ -338,18 +327,30 @@ const Sheet = ({
 }: {
   children: React.ReactNode;
   onClose: () => void;
-}) => (
-  <div
-    className="fixed inset-0 z-[80] bg-zinc-950/40 backdrop-blur-sm flex items-end justify-center"
-    onMouseDown={(e) => {
-      if (e.target === e.currentTarget) onClose();
-    }}
-  >
-    <div className="finance-sheet" onMouseDown={(e) => e.stopPropagation()}>
-      {children}
+}) => {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] bg-slate-950/50 backdrop-blur-sm flex items-end justify-center"
+      role="dialog"
+      aria-modal="true"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="finance-sheet" onMouseDown={(e) => e.stopPropagation()}>
+        {children}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const AddTransactionModal = ({
   open,
@@ -402,15 +403,25 @@ const AddTransactionModal = ({
           <span className="sheet-eyebrow">TRANSACTION</span>
           <h2>New Transaction</h2>
         </div>
-        <button className="sheet-close" onClick={onClose}>
+        <button
+          type="button"
+          className="sheet-close"
+          onClick={onClose}
+          aria-label="Close transaction form"
+        >
           <X size={18} />
         </button>
       </div>
 
       <form onSubmit={submit} className="space-y-4">
-        <div className="form-segment">
+        <div
+          className="form-segment"
+          role="group"
+          aria-label="Transaction type"
+        >
           <button
             type="button"
+            aria-pressed={type === "expense"}
             className={type === "expense" ? "active expense" : ""}
             onClick={() => setType("expense")}
           >
@@ -418,6 +429,7 @@ const AddTransactionModal = ({
           </button>
           <button
             type="button"
+            aria-pressed={type === "income"}
             className={type === "income" ? "active income" : ""}
             onClick={() => setType("income")}
           >
@@ -426,8 +438,11 @@ const AddTransactionModal = ({
         </div>
 
         <div>
-          <label className="finance-label">Amount (MMK)</label>
+          <label className="finance-label" htmlFor="transaction-amount">
+            Amount (MMK)
+          </label>
           <input
+            id="transaction-amount"
             className="finance-input amount-input"
             value={amount}
             inputMode="numeric"
@@ -438,8 +453,11 @@ const AddTransactionModal = ({
         </div>
 
         <div>
-          <label className="finance-label">Description</label>
+          <label className="finance-label" htmlFor="transaction-description">
+            Description
+          </label>
           <input
+            id="transaction-description"
             className="finance-input"
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
@@ -449,8 +467,11 @@ const AddTransactionModal = ({
         </div>
 
         <div>
-          <label className="finance-label">Account</label>
+          <label className="finance-label" htmlFor="transaction-account">
+            Account
+          </label>
           <select
+            id="transaction-account"
             className="finance-input"
             value={account || accounts[0]?.name || ""}
             onChange={(e) => setAccount(e.target.value)}
@@ -496,12 +517,7 @@ const TransferModal = ({
   if (!open) return null;
 
   const fromId = from || accounts[0]?.id.toString() || "";
-<<<<<<< HEAD
   const toId = to || (accounts[1]?.id ?? accounts[0]?.id)?.toString() || "";
-=======
-  const toId =
-    to || (accounts[1]?.id ?? accounts[0]?.id)?.toString() || "";
->>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -536,7 +552,11 @@ const TransferModal = ({
           <span className="sheet-eyebrow">MONEY MOVEMENT</span>
           <h2>Transfer Funds</h2>
         </div>
-        <button className="sheet-close" onClick={onClose}>
+        <button
+          className="sheet-close"
+          onClick={onClose}
+          aria-label="Close dialog"
+        >
           <X size={18} />
         </button>
       </div>
@@ -604,104 +624,13 @@ const TransferModal = ({
   );
 };
 
-<<<<<<< HEAD
-const PinScreen = ({ onUnlocked, darkMode }: { onUnlocked: () => Promise<void>; darkMode: boolean }) => {
-=======
-const CloseMonthModal = ({
-  open,
-  onClose,
-  onCloseMonth,
+const PinScreen = ({
+  onUnlocked,
+  darkMode,
 }: {
-  open: boolean;
-  onClose: () => void;
-  onCloseMonth: (data: { year: number; month: number; notes: string }) => Promise<void>;
+  onUnlocked: () => Promise<void>;
+  darkMode: boolean;
 }) => {
-  const [year, setYear] = useState(new Date().getFullYear().toString());
-  const [month, setMonth] = useState((new Date().getMonth() + 1).toString());
-  const [notes, setNotes] = useState("");
-  const [error, setError] = useState("");
-
-  if (!open) return null;
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const y = parseInt(year, 10);
-    const m = parseInt(month, 10);
-
-    if (!y || !m || m < 1 || m > 12) {
-      setError("Please enter a valid year and month (1-12).");
-      return;
-    }
-
-    try {
-      await onCloseMonth({ year: y, month: m, notes });
-      setNotes("");
-      onClose();
-    } catch (err) {
-      setError(errorMessage(err));
-    }
-  };
-
-  return (
-    <Sheet onClose={onClose}>
-      <div className="sheet-header">
-        <div>
-          <span className="sheet-eyebrow">ARCHIVE</span>
-          <h2>Close Month</h2>
-        </div>
-        <button className="sheet-close" onClick={onClose}>
-          <X size={18} />
-        </button>
-      </div>
-
-      {error && <div className="form-error">{error}</div>}
-
-      <form onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="finance-label">Year</label>
-            <input
-              className="finance-input"
-              type="number"
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <label className="finance-label">Month (1-12)</label>
-            <input
-              className="finance-input"
-              type="number"
-              min="1"
-              max="12"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              required
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="finance-label">Notes (Optional)</label>
-          <input
-            className="finance-input"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="e.g., End of Month Snapshot"
-          />
-        </div>
-
-        <button className="primary-action transfer" type="submit">
-          Save Snapshot
-        </button>
-      </form>
-    </Sheet>
-  );
-};
-
-const PinScreen = ({ onUnlocked }: { onUnlocked: () => Promise<void> }) => {
->>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
   const [pin, setPin] = useState("");
   const [remember, setRemember] = useState<24 | 48>(48);
   const [error, setError] = useState("");
@@ -728,18 +657,8 @@ const PinScreen = ({ onUnlocked }: { onUnlocked: () => Promise<void> }) => {
   };
 
   return (
-<<<<<<< HEAD
     <div className={`app-outer${darkMode ? " dark" : ""}`}>
       <div className={`app-shell pin-shell${darkMode ? " dark" : ""}`}>
-=======
-    <div className="app-outer">
-      <div className="liquid-background">
-        <div className="blob blob-purple"></div>
-        <div className="blob blob-cyan"></div>
-        <div className="blob blob-red"></div>
-      </div>
-      <div className="app-shell pin-shell glass-surface">
->>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
         <div className="pin-content">
           <span className="pin-eyebrow">PERSONAL FINANCE</span>
           <h1>Enter PIN</h1>
@@ -803,30 +722,25 @@ export default function App() {
   const [loans, setLoans] = useState<LoanData[]>([]);
   const [categories, setCategories] = useState<CategoryData[]>([]);
   const [savings, setSavings] = useState<SavingsData[]>([]);
-<<<<<<< HEAD
   const [activePeriod, setActivePeriod] = useState<FinancialPeriod | null>(
     null,
   );
   const [archivedPeriods, setArchivedPeriods] = useState<FinancialPeriod[]>([]);
-  const [monthlySummaries, setMonthlySummaries] = useState<MonthlySummary[]>([]);
+  const [monthlySummaries, setMonthlySummaries] = useState<MonthlySummary[]>(
+    [],
+  );
   const [periodModal, setPeriodModal] = useState(false);
   const [periodBusy, setPeriodBusy] = useState(false);
   const [periodError, setPeriodError] = useState("");
   const [selectedPeriod, setSelectedPeriod] = useState<FinancialPeriod | null>(
     null,
   );
-  const [selectedMonthlySummary, setSelectedMonthlySummary] = useState<MonthlySummary | null>(null);
+  const [selectedMonthlySummary, setSelectedMonthlySummary] =
+    useState<MonthlySummary | null>(null);
   const [historyFilter, setHistoryFilter] = useState("all");
   const [online, setOnline] = useState(navigator.onLine);
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
   const [showInstallHelp, setShowInstallHelp] = useState(false);
-=======
-  const [archives, setArchives] = useState<MonthlySummaryData[]>([]);
-  const [archiveDebug, setArchiveDebug] = useState<string>("");
-
-  const [historyTab, setHistoryTab] = useState<"transactions" | "archives">("transactions");
-  const [closeMonthModalOpen, setCloseMonthModalOpen] = useState(false);
->>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
 
   const [unlocked, setUnlocked] = useState(false);
   const [initializing, setInitializing] = useState(true);
@@ -860,22 +774,8 @@ export default function App() {
   const loadFinanceData = useCallback(async () => {
     setSyncStatus("Syncing...");
     const t = Date.now();
-    
-    const token = getAuthToken();
-    const apiBase = import.meta.env.VITE_API_BASE_URL || '/finance-app/api';
-
-    const archivesPromise = fetch(`${apiBase}/monthly/index.php?_t=${t}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
-      }
-    }).then(res => {
-      if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-      return res.json();
-    });
 
     const [
-<<<<<<< HEAD
       accountsResponse,
       transactionsResponse,
       loansResponse,
@@ -883,15 +783,6 @@ export default function App() {
       savingsResponse,
       periodsResponse,
     ] = await Promise.all([
-=======
-      accountsRes,
-      transactionsRes,
-      loansRes,
-      categoriesRes,
-      savingsRes,
-      archivesRes,
-    ] = await Promise.allSettled([
->>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
       api.get<{ accounts: AccountData[] }>(`accounts/index.php?_t=${t}`),
       api.get<{ transactions: TransactionData[] }>(
         `transactions/index.php?_t=${t}`,
@@ -899,10 +790,11 @@ export default function App() {
       api.get<{ loans: LoanData[] }>(`loans/index.php?_t=${t}`),
       api.get<{ categories: CategoryData[] }>(`categories/index.php?_t=${t}`),
       api.get<{ savings: SavingsData[] }>(`savings/index.php?_t=${t}`),
-<<<<<<< HEAD
-      api.get<{ active: FinancialPeriod | null; archived: FinancialPeriod[]; monthly_summaries?: MonthlySummary[] }>(
-        `periods/index.php?_t=${t}`,
-      ),
+      api.get<{
+        active: FinancialPeriod | null;
+        archived: FinancialPeriod[];
+        monthly_summaries?: MonthlySummary[];
+      }>(`periods/index.php?_t=${t}`),
     ]);
 
     setAccounts(accountsResponse.data.accounts);
@@ -913,38 +805,6 @@ export default function App() {
     setActivePeriod(periodsResponse.data.active);
     setArchivedPeriods(periodsResponse.data.archived);
     setMonthlySummaries(periodsResponse.data.monthly_summaries ?? []);
-=======
-      archivesPromise,
-    ]);
-
-    if (accountsRes.status === "fulfilled") setAccounts(accountsRes.value.data.accounts || []);
-    if (transactionsRes.status === "fulfilled") setTransactions(transactionsRes.value.data.transactions || []);
-    if (loansRes.status === "fulfilled") setLoans(loansRes.value.data.loans || []);
-    if (categoriesRes.status === "fulfilled") setCategories(categoriesRes.value.data.categories || []);
-    if (savingsRes.status === "fulfilled") setSavings(savingsRes.value.data.savings || []);
-    
-    if (archivesRes.status === "fulfilled") {
-      try {
-        const payload = archivesRes.value; 
-        
-        let list: any = [];
-        if (Array.isArray(payload)) list = payload;
-        else if (Array.isArray(payload?.data)) list = payload.data;
-        else if (Array.isArray(payload?.archives)) list = payload.archives;
-        else if (Array.isArray(payload?.summaries)) list = payload.summaries;
-        
-        setArchives(list);
-        setArchiveDebug("OK");
-      } catch (e) {
-        setArchives([]);
-        setArchiveDebug("Extraction error: " + (e as Error).message);
-      }
-    } else {
-      setArchives([]);
-      setArchiveDebug("Native Fetch Rejected: " + String(archivesRes.reason));
-    }
-
->>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
     setSyncStatus("API Synced");
     setIsError(false);
   }, []);
@@ -1044,7 +904,6 @@ export default function App() {
       setLoans([]);
       setCategories([]);
       setSavings([]);
-      setArchives([]);
       setSyncStatus("Session expired");
       setIsError(true);
     };
@@ -1119,23 +978,6 @@ export default function App() {
     }
   };
 
-  const unarchiveMonth = async (id: number) => {
-    const oldArchives = archives;
-    setArchives((items) => items.filter((item) => item.id !== id));
-    try {
-      await api.delete(`monthly/delete.php?id=${id}`);
-    } catch (error) {
-      const msg = errorMessage(error);
-      if (!msg.toLowerCase().includes("success")) {
-        setArchives(oldArchives);
-        setIsError(true);
-        setSyncStatus("API Error");
-        return;
-      }
-    }
-    await loadFinanceData();
-  };
-
   const addTransaction = async (data: {
     amount: number;
     type: string;
@@ -1180,18 +1022,6 @@ export default function App() {
       to_account_id: data.toAccountId,
       amount: data.amount,
     });
-    await loadFinanceData();
-  };
-
-  const closeMonth = async (data: { year: number; month: number; notes: string }) => {
-    try {
-      await api.post("monthly/close.php", data);
-    } catch (error) {
-      const msg = errorMessage(error);
-      if (!msg.toLowerCase().includes("success")) {
-        throw error; 
-      }
-    }
     await loadFinanceData();
   };
 
@@ -1413,13 +1243,8 @@ export default function App() {
           </button>
         </div>
 
-<<<<<<< HEAD
         <div className="transaction-card">
           {periodTransactions.slice(0, 5).map((tx, index) => (
-=======
-        <div className="transaction-card glass-surface">
-          {transactions.slice(0, 5).map((tx, index) => (
->>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
             <SwipeableItem
               key={tx.id}
               onDelete={() => deleteTransaction(tx.id)}
@@ -1525,7 +1350,6 @@ export default function App() {
 
   const renderHistory = () => (
     <div className="page-content">
-<<<<<<< HEAD
       <div className="subheader-block">
         <h2>History</h2>
         <p>All activity remains available here, including archived months.</p>
@@ -1567,9 +1391,7 @@ export default function App() {
             >
               <div className="transaction-row">
                 <div
-                  className={`transaction-icon ${
-                    tx.type === "expense" ? "expense" : "income"
-                  }`}
+                  className={`transaction-icon ${tx.type === "expense" ? "expense" : "income"}`}
                 >
                   {tx.type === "expense" ? (
                     <TrendingDown size={18} />
@@ -1585,9 +1407,7 @@ export default function App() {
                   </span>
                 </div>
                 <strong
-                  className={`transaction-amount ${
-                    tx.type === "expense" ? "expense" : "income"
-                  }`}
+                  className={`transaction-amount ${tx.type === "expense" ? "expense" : "income"}`}
                 >
                   {tx.type === "expense" ? "-" : "+"}
                   {formatMMK(tx.amount)}
@@ -1595,291 +1415,267 @@ export default function App() {
               </div>
             </SwipeableItem>
           ))}
-=======
-      <div className="subheader-row">
-        <p>Ledger & Monthly Archives</p>
-        <button
-          className="plans-add-button"
-          onClick={() => setCloseMonthModalOpen(true)}
-        >
-          <Archive size={15} />
-          Close Month
-        </button>
+        {!transactions.some(
+          (tx) =>
+            historyFilter === "all" ||
+            (historyFilter === "unassigned"
+              ? !tx.period_id
+              : historyFilter === "active"
+                ? tx.period_id === activePeriod?.id
+                : tx.period_status === "archived"),
+        ) && (
+          <div className="empty-state">No transactions match this filter.</div>
+        )}
       </div>
-
-      <div className="plans-segmented glass-surface">
-        <button
-          className={historyTab === "transactions" ? "active" : ""}
-          onClick={() => setHistoryTab("transactions")}
-        >
-          <History size={15} />
-          Transactions
-        </button>
-        <button
-          className={historyTab === "archives" ? "active" : ""}
-          onClick={() => setHistoryTab("archives")}
-        >
-          <Archive size={15} />
-          Archives
-        </button>
->>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
-      </div>
-
-      {historyTab === "transactions" ? (
-        <div className="transaction-card glass-surface">
-          {transactions.map((tx, index) => (
-            <SwipeableItem
-              key={tx.id}
-              onDelete={() => deleteTransaction(tx.id)}
-              className={index ? "transaction-divider" : ""}
-            >
-              <div className="transaction-row">
-                <div
-                  className={`transaction-icon ${
-                    tx.type === "expense" ? "expense" : "income"
-                  }`}
-                >
-                  {tx.type === "expense" ? (
-                    <TrendingDown size={18} />
-                  ) : (
-                    <TrendingUp size={18} />
-                  )}
-                </div>
-                <div className="transaction-info">
-                  <strong>{tx.desc || "Transaction"}</strong>
-                  <span>
-                    {tx.account} · {tx.category} · {formatDate(tx.date)}
-                  </span>
-                </div>
-                <strong
-                  className={`transaction-amount ${
-                    tx.type === "expense" ? "expense" : "income"
-                  }`}
-                >
-                  {tx.type === "expense" ? "-" : "+"}
-                  {formatMMK(tx.amount)}
-                </strong>
-              </div>
-            </SwipeableItem>
-          ))}
-          {!transactions.length && (
-            <div className="empty-state">No transactions recorded yet.</div>
-          )}
-        </div>
-      ) : (
-        <div className="stack-list">
-          {archives.map((archive) => (
-            <SwipeableItem
-              key={archive.id}
-              onDelete={() => unarchiveMonth(archive.id)}
-              className="rounded-3xl shadow-sm"
-            >
-              <div className="glass-surface p-4 relative rounded-2xl">
-                
-                {/* Visible Unarchive Button directly on the card */}
-                <button
-                  onClick={() => unarchiveMonth(archive.id)}
-                  className="absolute top-4 right-4 text-red-400 hover:text-red-600 p-1 bg-red-50/50 rounded-md transition-transform active:scale-95"
-                  title="Unarchive Month"
-                >
-                  <Trash2 size={16} />
-                </button>
-
-                <div className="flex justify-between items-start mb-3 border-b border-gray-200/50 pb-3 pr-8">
-                  <div>
-                    <strong className="text-sm font-bold block">{archive.year} - Month {archive.month}</strong>
-                    {archive.notes && <span className="text-xs text-gray-500 mt-1 block">{archive.notes}</span>}
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs text-gray-400 block uppercase font-bold tracking-wider mb-1">Net Savings</span>
-                    <strong className={`text-sm ${Number(archive.net_savings) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {Number(archive.net_savings) >= 0 ? '+' : ''}{formatMMK(Number(archive.net_savings))}
-                    </strong>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-emerald-50/60 rounded-xl p-3 border border-emerald-100/50">
-                    <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block mb-1">Income</span>
-                    <strong className="text-emerald-700 text-xs">{formatMMK(Number(archive.total_income))}</strong>
-                  </div>
-                  <div className="bg-red-50/60 rounded-xl p-3 border border-red-100/50">
-                    <span className="text-[10px] font-bold text-red-800 uppercase tracking-wider block mb-1">Expense</span>
-                    <strong className="text-red-700 text-xs">{formatMMK(Number(archive.total_expense))}</strong>
-                  </div>
-                </div>
-              </div>
-            </SwipeableItem>
-          ))}
-          {!archives.length && (
-            <div className="empty-state">
-              <p className="mb-2">No months have been closed yet.</p>
-              
-              {archiveDebug !== "OK" && archiveDebug !== "" && (
-                <div className="mt-4 p-3 bg-red-50/80 border border-red-200 rounded-lg text-left">
-                  <p className="text-[10px] font-bold text-red-800 uppercase tracking-wider mb-1">Debug Output:</p>
-                  <p className="text-[10px] text-red-600 font-mono break-all">{archiveDebug}</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 
   const renderArchive = () => (
     <div className="page-content">
-      {!selectedPeriod && !selectedMonthlySummary && (activePeriod ? (
-        <section className="archive-close-card ios-glass-prominent">
-          <div className="archive-close-icon">
-            <History size={19} />
-          </div>
-          <div className="archive-close-copy">
-            <span>MONTH IN PROGRESS</span>
-            <h2>{activePeriod.name || "Current Month"}</h2>
-            <p>{periodTransactions.length} transactions ready to archive</p>
-          </div>
-          <button onClick={() => setPeriodModal(true)}>Close Month</button>
-        </section>
-      ) : (
-        <section className="period-empty archive-start-card">
-          <div>
-            <span>READY FOR A NEW MONTH?</span>
-            <p>
-              Start a fresh month whenever you are ready. The archived reports
-              stay saved.
-            </p>
-          </div>
-          <button onClick={startPeriod}>
-            {periodBusy ? "Starting…" : "Start Month"}
-          </button>
-        </section>
-      ))}
+      {!selectedPeriod &&
+        !selectedMonthlySummary &&
+        (activePeriod ? (
+          <section className="archive-close-card ios-glass-prominent">
+            <div className="archive-close-icon">
+              <History size={19} />
+            </div>
+            <div className="archive-close-copy">
+              <span>MONTH IN PROGRESS</span>
+              <h2>{activePeriod.name || "Current Month"}</h2>
+              <p>{periodTransactions.length} transactions ready to archive</p>
+            </div>
+            <button onClick={() => setPeriodModal(true)}>Close Month</button>
+          </section>
+        ) : (
+          <section className="period-empty archive-start-card">
+            <div>
+              <span>READY FOR A NEW MONTH?</span>
+              <p>
+                Start a fresh month whenever you are ready. The archived reports
+                stay saved.
+              </p>
+            </div>
+            <button onClick={startPeriod}>
+              {periodBusy ? "Starting…" : "Start Month"}
+            </button>
+          </section>
+        ))}
       {periodError && (
         <div className="form-error archive-error">{periodError}</div>
       )}
       {selectedMonthlySummary ? (
         <section className="legacy-summary-report">
-          <button className="secondary-action" onClick={() => setSelectedMonthlySummary(null)}>← All archived reports</button>
-          <div className="archive-detail legacy-summary-detail">
-            <span>PREVIOUS MONTHLY ARCHIVE</span>
-            <h2>{new Date(selectedMonthlySummary.year, selectedMonthlySummary.month - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h2>
-            <p>Saved {new Date(selectedMonthlySummary.closed_at).toLocaleString()}{selectedMonthlySummary.notes ? ` · ${selectedMonthlySummary.notes}` : ""}</p>
-            <div className="archive-totals">
-              <div>Income<strong>{formatMMK(selectedMonthlySummary.total_income)}</strong></div>
-              <div>Expenses<strong>{formatMMK(selectedMonthlySummary.total_expense)}</strong></div>
-              <div>Net savings<strong>{formatMMK(selectedMonthlySummary.net_savings)}</strong></div>
-            </div>
-          </div>
-          {!!selectedMonthlySummary.category_breakdown?.length && <section className="legacy-breakdown"><h3>Category breakdown</h3>{selectedMonthlySummary.category_breakdown.map((item, index) => <div className="legacy-breakdown-row" key={index}><span>{String(item.category_name ?? item.name ?? "Uncategorized")}</span><small>{String(item.type ?? "")}</small><strong>{formatMMK(Number(item.total_amount ?? item.total ?? 0))}</strong></div>)}</section>}
-          {!!selectedMonthlySummary.account_snapshot?.length && <section className="legacy-breakdown"><h3>Account balances at archive</h3>{selectedMonthlySummary.account_snapshot.map((item, index) => <div className="legacy-breakdown-row" key={index}><span>{String(item.name ?? "Account")}</span><small>{String(item.type ?? "")}</small><strong>{formatMMK(Number(item.balance ?? 0))}</strong></div>)}</section>}
-        </section>
-      ) : null}
-      {!selectedMonthlySummary && (selectedPeriod ? (
-        <>
           <button
             className="secondary-action"
-              onClick={() => { setSelectedPeriod(null); setSelectedMonthlySummary(null); }}
+            onClick={() => setSelectedMonthlySummary(null)}
           >
-            ← All archived periods
+            ← All archived reports
           </button>
-          <div className="archive-detail">
-            <span>ARCHIVED REPORT</span>
-            <h2>{selectedPeriod.name || "Financial Period"}</h2>
+          <div className="archive-detail legacy-summary-detail">
+            <span>PREVIOUS MONTHLY ARCHIVE</span>
+            <h2>
+              {new Date(
+                selectedMonthlySummary.year,
+                selectedMonthlySummary.month - 1,
+              ).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+            </h2>
             <p>
-              {selectedPeriod.start_date} – {selectedPeriod.end_date} · Closed{" "}
-              {selectedPeriod.closed_at
-                ? new Date(selectedPeriod.closed_at).toLocaleString()
+              Saved{" "}
+              {new Date(selectedMonthlySummary.closed_at).toLocaleString()}
+              {selectedMonthlySummary.notes
+                ? ` · ${selectedMonthlySummary.notes}`
                 : ""}
             </p>
             <div className="archive-totals">
               <div>
                 Income
-                <strong>{formatMMK(selectedPeriod.total_income || 0)}</strong>
+                <strong>
+                  {formatMMK(selectedMonthlySummary.total_income)}
+                </strong>
               </div>
               <div>
                 Expenses
-                <strong>{formatMMK(selectedPeriod.total_expenses || 0)}</strong>
+                <strong>
+                  {formatMMK(selectedMonthlySummary.total_expense)}
+                </strong>
               </div>
               <div>
-                Net<strong>{formatMMK(selectedPeriod.net_income || 0)}</strong>
-              </div>
-              <div>
-                Transactions
-                <strong>{selectedPeriod.transaction_count || 0}</strong>
+                Net savings
+                <strong>{formatMMK(selectedMonthlySummary.net_savings)}</strong>
               </div>
             </div>
           </div>
-          <div className="transaction-card">
-            {transactions
-              .filter((tx) => tx.period_id === selectedPeriod.id)
-              .map((tx) => (
-                <div className="transaction-row" key={tx.id}>
-                  <div className={`transaction-icon ${tx.type}`}>
-                    <span>{tx.type === "income" ? "+" : "−"}</span>
-                  </div>
-                  <div className="transaction-info">
-                    <strong>{tx.desc || tx.category}</strong>
-                    <span>
-                      {tx.category} · {tx.account} · {formatDate(tx.date)}
-                    </span>
-                  </div>
-                  <strong className={`transaction-amount ${tx.type}`}>
-                    {tx.type === "income" ? "+" : "−"}
-                    {formatMMK(tx.amount)}
+          {!!selectedMonthlySummary.category_breakdown?.length && (
+            <section className="legacy-breakdown">
+              <h3>Category breakdown</h3>
+              {selectedMonthlySummary.category_breakdown.map((item, index) => (
+                <div className="legacy-breakdown-row" key={index}>
+                  <span>
+                    {String(item.category_name ?? item.name ?? "Uncategorized")}
+                  </span>
+                  <small>{String(item.type ?? "")}</small>
+                  <strong>
+                    {formatMMK(Number(item.total_amount ?? item.total ?? 0))}
                   </strong>
                 </div>
               ))}
-          </div>
-        </>
-      ) : (
-        <>
-          {!selectedPeriod && (
-            <div className="subheader-block archive-heading">
-              <h2>Archived Months</h2>
-              <p>Totals and transaction details from every month you closed.</p>
-            </div>
+            </section>
           )}
-          {archivedPeriods.map((period) => (
+          {!!selectedMonthlySummary.account_snapshot?.length && (
+            <section className="legacy-breakdown">
+              <h3>Account balances at archive</h3>
+              {selectedMonthlySummary.account_snapshot.map((item, index) => (
+                <div className="legacy-breakdown-row" key={index}>
+                  <span>{String(item.name ?? "Account")}</span>
+                  <small>{String(item.type ?? "")}</small>
+                  <strong>{formatMMK(Number(item.balance ?? 0))}</strong>
+                </div>
+              ))}
+            </section>
+          )}
+        </section>
+      ) : null}
+      {!selectedMonthlySummary &&
+        (selectedPeriod ? (
+          <>
             <button
-              className="archive-card"
-              key={period.id}
-              onClick={() => { setSelectedMonthlySummary(null); setSelectedPeriod(period); }}
+              className="secondary-action"
+              onClick={() => {
+                setSelectedPeriod(null);
+                setSelectedMonthlySummary(null);
+              }}
             >
-              <span>
-                {period.start_date} – {period.end_date}
-              </span>
-              <strong>{period.name || "Financial Period"}</strong>
-              <div>
-                Income {formatMMK(period.total_income || 0)} · Expenses{" "}
-                {formatMMK(period.total_expenses || 0)}
+              ← All archived periods
+            </button>
+            <div className="archive-detail">
+              <span>ARCHIVED REPORT</span>
+              <h2>{selectedPeriod.name || "Financial Period"}</h2>
+              <p>
+                {selectedPeriod.start_date} – {selectedPeriod.end_date} · Closed{" "}
+                {selectedPeriod.closed_at
+                  ? new Date(selectedPeriod.closed_at).toLocaleString()
+                  : ""}
+              </p>
+              <div className="archive-totals">
+                <div>
+                  Income
+                  <strong>{formatMMK(selectedPeriod.total_income || 0)}</strong>
+                </div>
+                <div>
+                  Expenses
+                  <strong>
+                    {formatMMK(selectedPeriod.total_expenses || 0)}
+                  </strong>
+                </div>
+                <div>
+                  Net
+                  <strong>{formatMMK(selectedPeriod.net_income || 0)}</strong>
+                </div>
+                <div>
+                  Transactions
+                  <strong>{selectedPeriod.transaction_count || 0}</strong>
+                </div>
               </div>
-              <small>
-                Net {formatMMK(period.net_income || 0)} ·{" "}
-                {period.transaction_count || 0} transactions
-              </small>
-            </button>
-          ))}
-          {!!monthlySummaries.length && (
-            <div className="subheader-block archive-heading legacy-archive-heading">
-              <h2>Monthly Summaries</h2>
-              <p>Saved directly from your monthly_summaries records.</p>
             </div>
-          )}
-          {monthlySummaries.map((summary) => (
-            <button className="archive-card legacy-summary-card" key={`monthly-${summary.id}`} onClick={() => {setSelectedPeriod(null);setSelectedMonthlySummary(summary)}}>
-              <span>PREVIOUS ARCHIVE · {new Date(summary.year, summary.month - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
-              <strong>{new Date(summary.year, summary.month - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })} summary</strong>
-              <div>Income {formatMMK(summary.total_income)} · Expenses {formatMMK(summary.total_expense)}</div>
-              <small>Net savings {formatMMK(summary.net_savings)} · Saved {new Date(summary.closed_at).toLocaleDateString()}</small>
-            </button>
-          ))}
-          {!archivedPeriods.length && !monthlySummaries.length && (
-            <div className="empty-state">No archived reports yet.</div>
-          )}
-        </>
-      ))}
+            <div className="transaction-card">
+              {transactions
+                .filter((tx) => tx.period_id === selectedPeriod.id)
+                .map((tx) => (
+                  <div className="transaction-row" key={tx.id}>
+                    <div className={`transaction-icon ${tx.type}`}>
+                      <span>{tx.type === "income" ? "+" : "−"}</span>
+                    </div>
+                    <div className="transaction-info">
+                      <strong>{tx.desc || tx.category}</strong>
+                      <span>
+                        {tx.category} · {tx.account} · {formatDate(tx.date)}
+                      </span>
+                    </div>
+                    <strong className={`transaction-amount ${tx.type}`}>
+                      {tx.type === "income" ? "+" : "−"}
+                      {formatMMK(tx.amount)}
+                    </strong>
+                  </div>
+                ))}
+            </div>
+          </>
+        ) : (
+          <>
+            {!selectedPeriod && (
+              <div className="subheader-block archive-heading">
+                <h2>Archived Months</h2>
+                <p>
+                  Totals and transaction details from every month you closed.
+                </p>
+              </div>
+            )}
+            {archivedPeriods.map((period) => (
+              <button
+                className="archive-card"
+                key={period.id}
+                onClick={() => {
+                  setSelectedMonthlySummary(null);
+                  setSelectedPeriod(period);
+                }}
+              >
+                <span>
+                  {period.start_date} – {period.end_date}
+                </span>
+                <strong>{period.name || "Financial Period"}</strong>
+                <div>
+                  Income {formatMMK(period.total_income || 0)} · Expenses{" "}
+                  {formatMMK(period.total_expenses || 0)}
+                </div>
+                <small>
+                  Net {formatMMK(period.net_income || 0)} ·{" "}
+                  {period.transaction_count || 0} transactions
+                </small>
+              </button>
+            ))}
+            {!!monthlySummaries.length && (
+              <div className="subheader-block archive-heading legacy-archive-heading">
+                <h2>Monthly Summaries</h2>
+                <p>Saved directly from your monthly_summaries records.</p>
+              </div>
+            )}
+            {monthlySummaries.map((summary) => (
+              <button
+                className="archive-card legacy-summary-card"
+                key={`monthly-${summary.id}`}
+                onClick={() => {
+                  setSelectedPeriod(null);
+                  setSelectedMonthlySummary(summary);
+                }}
+              >
+                <span>
+                  PREVIOUS ARCHIVE ·{" "}
+                  {new Date(summary.year, summary.month - 1).toLocaleDateString(
+                    "en-US",
+                    { month: "long", year: "numeric" },
+                  )}
+                </span>
+                <strong>
+                  {new Date(summary.year, summary.month - 1).toLocaleDateString(
+                    "en-US",
+                    { month: "long", year: "numeric" },
+                  )}{" "}
+                  summary
+                </strong>
+                <div>
+                  Income {formatMMK(summary.total_income)} · Expenses{" "}
+                  {formatMMK(summary.total_expense)}
+                </div>
+                <small>
+                  Net savings {formatMMK(summary.net_savings)} · Saved{" "}
+                  {new Date(summary.closed_at).toLocaleDateString()}
+                </small>
+              </button>
+            ))}
+            {!archivedPeriods.length && !monthlySummaries.length && (
+              <div className="empty-state">No archived reports yet.</div>
+            )}
+          </>
+        ))}
     </div>
   );
 
@@ -2063,20 +1859,9 @@ export default function App() {
 
   if (initializing) {
     return (
-<<<<<<< HEAD
       <div className={`app-outer${darkMode ? " dark" : ""}`}>
         <div className="app-shell loading-shell">
           <RefreshCw className="animate-spin text-blue-600" size={28} />
-=======
-      <div className="app-outer">
-        <div className="liquid-background">
-          <div className="blob blob-purple"></div>
-          <div className="blob blob-cyan"></div>
-          <div className="blob blob-red"></div>
-        </div>
-        <div className="app-shell loading-shell glass-surface">
-          <RefreshCw className="animate-spin text-indigo-600" size={28} />
->>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
           <span>{syncStatus}</span>
         </div>
       </div>
@@ -2109,7 +1894,6 @@ export default function App() {
     accountModal ||
     loanModal ||
     savingsModal ||
-<<<<<<< HEAD
     periodModal;
 
   return (
@@ -2117,18 +1901,6 @@ export default function App() {
       <div
         className={`app-shell finance-app-shell ios-surface${darkMode ? " dark" : ""}`}
       >
-=======
-    closeMonthModalOpen;
-
-  return (
-    <div className="app-outer">
-      <div className="liquid-background">
-        <div className="blob blob-purple"></div>
-        <div className="blob blob-cyan"></div>
-        <div className="blob blob-red"></div>
-      </div>
-      <div className="app-shell finance-app-shell glass-surface">
->>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
         <TopBar
           title={title}
           syncStatus={syncStatus}
@@ -2181,7 +1953,11 @@ export default function App() {
                 </button>
                 <button
                   className={recordsTab === "archive" ? "active" : ""}
-                  onClick={() => { setRecordsTab("archive"); setSelectedPeriod(null); setSelectedMonthlySummary(null); }}
+                  onClick={() => {
+                    setRecordsTab("archive");
+                    setSelectedPeriod(null);
+                    setSelectedMonthlySummary(null);
+                  }}
                 >
                   Archive
                 </button>
@@ -2238,7 +2014,6 @@ export default function App() {
             </div>
           </Sheet>
         )}
-
 
         {periodModal && (
           <Sheet onClose={() => setPeriodModal(false)}>
@@ -2378,7 +2153,7 @@ export default function App() {
                   className="finance-input"
                   value={loanName}
                   onChange={(e) => setLoanName(e.target.value)}
-                  placeholder="e.g. Nang Ei"
+                  placeholder="e.g. Loan from John"
                   required
                 />
               </div>
@@ -2510,12 +2285,6 @@ export default function App() {
             </form>
           </Sheet>
         )}
-
-        <CloseMonthModal
-          open={closeMonthModalOpen}
-          onClose={() => setCloseMonthModalOpen(false)}
-          onCloseMonth={closeMonth}
-        />
       </div>
     </div>
   );
