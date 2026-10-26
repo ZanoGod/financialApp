@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config/env.php';
 
+// Explicitly load database.php: Linux hosting is case-sensitive, while the autoloader expects Database.php.
+require_once __DIR__ . '/../config/database.php';
+
 loadEnvFile(__DIR__ . '/../.env');
 require_once __DIR__ . '/../middleware/cors.php';
 

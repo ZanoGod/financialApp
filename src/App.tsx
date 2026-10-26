@@ -16,6 +16,9 @@ import {
   RefreshCw,
   PiggyBank,
   Pencil,
+  Sun,
+  Moon,
+  Smartphone,
 } from "lucide-react";
 import "./App.css";
 
@@ -46,6 +49,35 @@ interface TransactionData {
   account: string;
   date: string;
   desc: string;
+  period_id?: number | null;
+  period_name?: string | null;
+  period_status?: string | null;
+}
+
+interface FinancialPeriod {
+  id: number;
+  name: string | null;
+  start_date: string;
+  end_date: string | null;
+  status: "active" | "archived";
+  closed_at?: string | null;
+  transaction_count?: number;
+  total_income?: number;
+  total_expenses?: number;
+  net_income?: number;
+}
+
+interface MonthlySummary {
+  id: number;
+  year: number;
+  month: number;
+  total_income: number;
+  total_expense: number;
+  net_savings: number;
+  account_snapshot: Array<Record<string, unknown>>;
+  category_breakdown: Array<Record<string, unknown>>;
+  notes: string | null;
+  closed_at: string;
 }
 
 interface LoanData {
@@ -179,28 +211,45 @@ const TopBar = ({
   syncStatus,
   isError,
   onSync,
+  darkMode,
+  onToggleTheme,
+  onInstallHelp,
 }: {
   title: string;
   syncStatus: string;
   isError: boolean;
   onSync: () => void;
+  darkMode: boolean;
+  onToggleTheme: () => void;
+  onInstallHelp: () => void;
 }) => (
   <header className="app-topbar">
     <h1>{title}</h1>
 
     <div className="sync-area">
+      <button className="theme-toggle ios-glass-clear install-icon-button" onClick={onInstallHelp} aria-label="Installation help" title="Install app">
+        <Smartphone size={16} />
+      </button>
+      <button
+        className="theme-toggle ios-glass"
+        onClick={onToggleTheme}
+        aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+        title={darkMode ? "Light mode" : "Dark mode"}
+      >
+        {darkMode ? <Sun size={17} /> : <Moon size={17} />}
+      </button>
       <button
         onClick={onSync}
         disabled={syncStatus === "Syncing..."}
         className="sync-button"
         aria-label="Sync"
+        title="Sync data"
       >
         <RefreshCw
           size={14}
           className={syncStatus === "Syncing..." ? "animate-spin" : ""}
         />
       </button>
-
       <span className={`sync-status ${isError ? "error" : ""}`}>
         <span className="sync-dot" />
         {syncStatus}
@@ -216,7 +265,10 @@ const BottomNav = ({
   activeTab: string;
   setActiveTab: (tab: string) => void;
 }) => (
-  <nav className="glass-bottom-nav" aria-label="Main navigation">
+  <nav
+    className="glass-bottom-nav ios-glass-clear"
+    aria-label="Main navigation"
+  >
     <button
       className={`glass-nav-item ${activeTab === "home" ? "active" : ""}`}
       onClick={() => setActiveTab("home")}
@@ -236,8 +288,8 @@ const BottomNav = ({
     <div className="glass-nav-spacer" />
 
     <button
-      className={`glass-nav-item ${activeTab === "history" ? "active" : ""}`}
-      onClick={() => setActiveTab("history")}
+      className={`glass-nav-item ${activeTab === "records" ? "active" : ""}`}
+      onClick={() => setActiveTab("records")}
     >
       <History size={20} />
       <span>History</span>
@@ -266,10 +318,7 @@ const Sheet = ({
       if (e.target === e.currentTarget) onClose();
     }}
   >
-    <div
-      className="finance-sheet"
-      onMouseDown={(e) => e.stopPropagation()}
-    >
+    <div className="finance-sheet" onMouseDown={(e) => e.stopPropagation()}>
       {children}
     </div>
   </div>
@@ -420,10 +469,7 @@ const TransferModal = ({
   if (!open) return null;
 
   const fromId = from || accounts[0]?.id.toString() || "";
-  const toId =
-    to ||
-    (accounts[1]?.id ?? accounts[0]?.id)?.toString() ||
-    "";
+  const toId = to || (accounts[1]?.id ?? accounts[0]?.id)?.toString() || "";
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -526,7 +572,7 @@ const TransferModal = ({
   );
 };
 
-const PinScreen = ({ onUnlocked }: { onUnlocked: () => Promise<void> }) => {
+const PinScreen = ({ onUnlocked, darkMode }: { onUnlocked: () => Promise<void>; darkMode: boolean }) => {
   const [pin, setPin] = useState("");
   const [remember, setRemember] = useState<24 | 48>(48);
   const [error, setError] = useState("");
@@ -553,8 +599,8 @@ const PinScreen = ({ onUnlocked }: { onUnlocked: () => Promise<void> }) => {
   };
 
   return (
-    <div className="app-outer">
-      <div className="app-shell pin-shell">
+    <div className={`app-outer${darkMode ? " dark" : ""}`}>
+      <div className={`app-shell pin-shell${darkMode ? " dark" : ""}`}>
         <div className="pin-content">
           <span className="pin-eyebrow">PERSONAL FINANCE</span>
           <h1>Enter PIN</h1>
@@ -595,11 +641,7 @@ const PinScreen = ({ onUnlocked }: { onUnlocked: () => Promise<void> }) => {
 
             {error && <div className="form-error">{error}</div>}
 
-            <button
-              className="primary-action"
-              disabled={loading}
-              type="submit"
-            >
+            <button className="primary-action" disabled={loading} type="submit">
               {loading ? "Unlocking..." : "Unlock"}
             </button>
           </form>
@@ -611,11 +653,33 @@ const PinScreen = ({ onUnlocked }: { onUnlocked: () => Promise<void> }) => {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("home");
+  const [recordsTab, setRecordsTab] = useState<"history" | "archive">(
+    "history",
+  );
+  const [darkMode, setDarkMode] = useState(
+    () => localStorage.getItem("finance_theme") === "dark",
+  );
   const [accounts, setAccounts] = useState<AccountData[]>([]);
   const [transactions, setTransactions] = useState<TransactionData[]>([]);
   const [loans, setLoans] = useState<LoanData[]>([]);
   const [categories, setCategories] = useState<CategoryData[]>([]);
   const [savings, setSavings] = useState<SavingsData[]>([]);
+  const [activePeriod, setActivePeriod] = useState<FinancialPeriod | null>(
+    null,
+  );
+  const [archivedPeriods, setArchivedPeriods] = useState<FinancialPeriod[]>([]);
+  const [monthlySummaries, setMonthlySummaries] = useState<MonthlySummary[]>([]);
+  const [periodModal, setPeriodModal] = useState(false);
+  const [periodBusy, setPeriodBusy] = useState(false);
+  const [periodError, setPeriodError] = useState("");
+  const [selectedPeriod, setSelectedPeriod] = useState<FinancialPeriod | null>(
+    null,
+  );
+  const [selectedMonthlySummary, setSelectedMonthlySummary] = useState<MonthlySummary | null>(null);
+  const [historyFilter, setHistoryFilter] = useState("all");
+  const [online, setOnline] = useState(navigator.onLine);
+  const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
 
   const [unlocked, setUnlocked] = useState(false);
   const [initializing, setInitializing] = useState(true);
@@ -656,12 +720,18 @@ export default function App() {
       loansResponse,
       categoriesResponse,
       savingsResponse,
+      periodsResponse,
     ] = await Promise.all([
       api.get<{ accounts: AccountData[] }>(`accounts/index.php?_t=${t}`),
-      api.get<{ transactions: TransactionData[] }>(`transactions/index.php?_t=${t}`),
+      api.get<{ transactions: TransactionData[] }>(
+        `transactions/index.php?_t=${t}`,
+      ),
       api.get<{ loans: LoanData[] }>(`loans/index.php?_t=${t}`),
       api.get<{ categories: CategoryData[] }>(`categories/index.php?_t=${t}`),
       api.get<{ savings: SavingsData[] }>(`savings/index.php?_t=${t}`),
+      api.get<{ active: FinancialPeriod | null; archived: FinancialPeriod[]; monthly_summaries?: MonthlySummary[] }>(
+        `periods/index.php?_t=${t}`,
+      ),
     ]);
 
     setAccounts(accountsResponse.data.accounts);
@@ -669,9 +739,77 @@ export default function App() {
     setLoans(loansResponse.data.loans);
     setCategories(categoriesResponse.data.categories);
     setSavings(savingsResponse.data.savings);
+    setActivePeriod(periodsResponse.data.active);
+    setArchivedPeriods(periodsResponse.data.archived);
+    setMonthlySummaries(periodsResponse.data.monthly_summaries ?? []);
     setSyncStatus("API Synced");
     setIsError(false);
   }, []);
+
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("finance_theme", darkMode ? "dark" : "light");
+    document.querySelector(".ios-surface")?.classList.toggle("dark", darkMode);
+    document.querySelector(".app-outer")?.classList.toggle("dark", darkMode);
+    document.documentElement.classList.toggle("dark", darkMode);
+    document.documentElement.style.colorScheme = darkMode ? "dark" : "light";
+  }, [darkMode]);
+
+  useEffect(() => {
+    const install = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+    window.addEventListener("beforeinstallprompt", install);
+    return () => window.removeEventListener("beforeinstallprompt", install);
+  }, []);
+
+  const closeMonth = async () => {
+    if (!activePeriod || periodBusy) return;
+    if (
+      !window.confirm(
+        "Close and archive this month? The app will save its totals and transaction history, remove those entries from the dashboard summary, and leave account balances unchanged.",
+      )
+    )
+      return;
+    setPeriodBusy(true);
+    setPeriodError("");
+    try {
+      await api.post("periods/close.php", {});
+      setPeriodModal(false);
+      await loadFinanceData();
+      setRecordsTab("archive");
+      setActiveTab("records");
+    } catch (error) {
+      setPeriodError(errorMessage(error));
+    } finally {
+      setPeriodBusy(false);
+    }
+  };
+
+  const startPeriod = async () => {
+    if (periodBusy) return;
+    setPeriodBusy(true);
+    setPeriodError("");
+    try {
+      await api.post("periods/create.php", {});
+      setPeriodModal(false);
+      await loadFinanceData();
+    } catch (error) {
+      setPeriodError(errorMessage(error));
+    } finally {
+      setPeriodBusy(false);
+    }
+  };
 
   useEffect(() => {
     const boot = async () => {
@@ -865,16 +1003,9 @@ export default function App() {
     e.preventDefault();
     const total = parseInputValue(loanTotal);
     const remaining =
-      loanRemaining.trim() === ""
-        ? total
-        : parseInputValue(loanRemaining);
+      loanRemaining.trim() === "" ? total : parseInputValue(loanRemaining);
 
-    if (
-      !loanName.trim() ||
-      total <= 0 ||
-      remaining < 0 ||
-      remaining > total
-    ) {
+    if (!loanName.trim() || total <= 0 || remaining < 0 || remaining > total) {
       return;
     }
 
@@ -942,10 +1073,7 @@ export default function App() {
 
     const response =
       savingEditingId === null
-        ? await api.post<{ saving: SavingsData }>(
-            "savings/create.php",
-            payload,
-          )
+        ? await api.post<{ saving: SavingsData }>("savings/create.php", payload)
         : await api.put<{ saving: SavingsData }>(
             `savings/update.php?id=${savingEditingId}`,
             payload,
@@ -966,10 +1094,13 @@ export default function App() {
   };
 
   const totalBalance = accounts.reduce((sum, item) => sum + item.balance, 0);
-  const income = transactions
+  const periodTransactions = activePeriod
+    ? transactions.filter((item) => item.period_id === activePeriod.id)
+    : [];
+  const income = periodTransactions
     .filter((item) => item.type === "income")
     .reduce((sum, item) => sum + item.amount, 0);
-  const expense = transactions
+  const expense = periodTransactions
     .filter((item) => item.type === "expense")
     .reduce((sum, item) => sum + item.amount, 0);
 
@@ -978,15 +1109,15 @@ export default function App() {
       ? "Overview"
       : activeTab === "accounts"
         ? "Accounts"
-        : activeTab === "history"
-          ? "History"
+        : activeTab === "records"
+          ? "History & Archive"
           : "Plans";
 
   const renderHome = () => (
     <div className="space-y-7">
       <section className="balance-card">
         <div className="balance-glow" />
-        <span className="balance-label">TOTAL BALANCE</span>
+        <span className="balance-label">LIFETIME ACCOUNT BALANCE</span>
         <div className="balance-value">
           {formatMMK(totalBalance)}
           <span>MMK</span>
@@ -1039,11 +1170,18 @@ export default function App() {
       <section className="px-4">
         <div className="section-heading compact">
           <h2>Recent Transactions</h2>
-          <button onClick={() => setActiveTab("history")}>See All</button>
+          <button
+            onClick={() => {
+              setRecordsTab("history");
+              setActiveTab("records");
+            }}
+          >
+            See All
+          </button>
         </div>
 
         <div className="transaction-card">
-          {transactions.slice(0, 5).map((tx, index) => (
+          {periodTransactions.slice(0, 5).map((tx, index) => (
             <SwipeableItem
               key={tx.id}
               onDelete={() => deleteTransaction(tx.id)}
@@ -1081,8 +1219,12 @@ export default function App() {
             </SwipeableItem>
           ))}
 
-          {!transactions.length && (
-            <div className="empty-state">No transactions yet.</div>
+          {!periodTransactions.length && (
+            <div className="empty-state">
+              {activePeriod
+                ? "No transactions this month yet."
+                : "No open month. Start one from Archive when ready."}
+            </div>
           )}
         </div>
       </section>
@@ -1146,47 +1288,230 @@ export default function App() {
   const renderHistory = () => (
     <div className="page-content">
       <div className="subheader-block">
-        <h2>Ledger History</h2>
-        <p>Swipe left to delete a transaction</p>
+        <h2>History</h2>
+        <p>All activity remains available here, including archived months.</p>
+      </div>
+
+      <div className="history-filters">
+        {[
+          ["all", "All"],
+          ["active", "Active"],
+          ["archived", "Archived"],
+          ["unassigned", "Unassigned"],
+        ].map(([value, label]) => (
+          <button
+            className={historyFilter === value ? "active" : ""}
+            key={value}
+            onClick={() => setHistoryFilter(value)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <div className="transaction-card">
-        {transactions.map((tx, index) => (
-          <SwipeableItem
-            key={tx.id}
-            onDelete={() => deleteTransaction(tx.id)}
-            className={index ? "transaction-divider" : ""}
-          >
-            <div className="transaction-row">
-              <div
-                className={`transaction-icon ${
-                  tx.type === "expense" ? "expense" : "income"
-                }`}
-              >
-                {tx.type === "expense" ? (
-                  <TrendingDown size={18} />
-                ) : (
-                  <TrendingUp size={18} />
-                )}
+        {transactions
+          .filter(
+            (tx) =>
+              historyFilter === "all" ||
+              (historyFilter === "unassigned"
+                ? !tx.period_id
+                : historyFilter === "active"
+                  ? tx.period_id === activePeriod?.id
+                  : tx.period_status === "archived"),
+          )
+          .map((tx, index) => (
+            <SwipeableItem
+              key={tx.id}
+              onDelete={() => deleteTransaction(tx.id)}
+              className={index ? "transaction-divider" : ""}
+            >
+              <div className="transaction-row">
+                <div
+                  className={`transaction-icon ${
+                    tx.type === "expense" ? "expense" : "income"
+                  }`}
+                >
+                  {tx.type === "expense" ? (
+                    <TrendingDown size={18} />
+                  ) : (
+                    <TrendingUp size={18} />
+                  )}
+                </div>
+                <div className="transaction-info">
+                  <strong>{tx.desc || "Transaction"}</strong>
+                  <span>
+                    {tx.account} · {tx.category} · {formatDate(tx.date)} ·{" "}
+                    {tx.period_name || "Unassigned"}
+                  </span>
+                </div>
+                <strong
+                  className={`transaction-amount ${
+                    tx.type === "expense" ? "expense" : "income"
+                  }`}
+                >
+                  {tx.type === "expense" ? "-" : "+"}
+                  {formatMMK(tx.amount)}
+                </strong>
               </div>
-              <div className="transaction-info">
-                <strong>{tx.desc || "Transaction"}</strong>
-                <span>
-                  {tx.account} · {tx.category} · {formatDate(tx.date)}
-                </span>
-              </div>
-              <strong
-                className={`transaction-amount ${
-                  tx.type === "expense" ? "expense" : "income"
-                }`}
-              >
-                {tx.type === "expense" ? "-" : "+"}
-                {formatMMK(tx.amount)}
-              </strong>
-            </div>
-          </SwipeableItem>
-        ))}
+            </SwipeableItem>
+          ))}
       </div>
+    </div>
+  );
+
+  const renderArchive = () => (
+    <div className="page-content">
+      {!selectedPeriod && !selectedMonthlySummary && (activePeriod ? (
+        <section className="archive-close-card ios-glass-prominent">
+          <div className="archive-close-icon">
+            <History size={19} />
+          </div>
+          <div className="archive-close-copy">
+            <span>MONTH IN PROGRESS</span>
+            <h2>{activePeriod.name || "Current Month"}</h2>
+            <p>{periodTransactions.length} transactions ready to archive</p>
+          </div>
+          <button onClick={() => setPeriodModal(true)}>Close Month</button>
+        </section>
+      ) : (
+        <section className="period-empty archive-start-card">
+          <div>
+            <span>READY FOR A NEW MONTH?</span>
+            <p>
+              Start a fresh month whenever you are ready. The archived reports
+              stay saved.
+            </p>
+          </div>
+          <button onClick={startPeriod}>
+            {periodBusy ? "Starting…" : "Start Month"}
+          </button>
+        </section>
+      ))}
+      {periodError && (
+        <div className="form-error archive-error">{periodError}</div>
+      )}
+      {selectedMonthlySummary ? (
+        <section className="legacy-summary-report">
+          <button className="secondary-action" onClick={() => setSelectedMonthlySummary(null)}>← All archived reports</button>
+          <div className="archive-detail legacy-summary-detail">
+            <span>PREVIOUS MONTHLY ARCHIVE</span>
+            <h2>{new Date(selectedMonthlySummary.year, selectedMonthlySummary.month - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h2>
+            <p>Saved {new Date(selectedMonthlySummary.closed_at).toLocaleString()}{selectedMonthlySummary.notes ? ` · ${selectedMonthlySummary.notes}` : ""}</p>
+            <div className="archive-totals">
+              <div>Income<strong>{formatMMK(selectedMonthlySummary.total_income)}</strong></div>
+              <div>Expenses<strong>{formatMMK(selectedMonthlySummary.total_expense)}</strong></div>
+              <div>Net savings<strong>{formatMMK(selectedMonthlySummary.net_savings)}</strong></div>
+            </div>
+          </div>
+          {!!selectedMonthlySummary.category_breakdown?.length && <section className="legacy-breakdown"><h3>Category breakdown</h3>{selectedMonthlySummary.category_breakdown.map((item, index) => <div className="legacy-breakdown-row" key={index}><span>{String(item.category_name ?? item.name ?? "Uncategorized")}</span><small>{String(item.type ?? "")}</small><strong>{formatMMK(Number(item.total_amount ?? item.total ?? 0))}</strong></div>)}</section>}
+          {!!selectedMonthlySummary.account_snapshot?.length && <section className="legacy-breakdown"><h3>Account balances at archive</h3>{selectedMonthlySummary.account_snapshot.map((item, index) => <div className="legacy-breakdown-row" key={index}><span>{String(item.name ?? "Account")}</span><small>{String(item.type ?? "")}</small><strong>{formatMMK(Number(item.balance ?? 0))}</strong></div>)}</section>}
+        </section>
+      ) : null}
+      {!selectedMonthlySummary && (selectedPeriod ? (
+        <>
+          <button
+            className="secondary-action"
+              onClick={() => { setSelectedPeriod(null); setSelectedMonthlySummary(null); }}
+          >
+            ← All archived periods
+          </button>
+          <div className="archive-detail">
+            <span>ARCHIVED REPORT</span>
+            <h2>{selectedPeriod.name || "Financial Period"}</h2>
+            <p>
+              {selectedPeriod.start_date} – {selectedPeriod.end_date} · Closed{" "}
+              {selectedPeriod.closed_at
+                ? new Date(selectedPeriod.closed_at).toLocaleString()
+                : ""}
+            </p>
+            <div className="archive-totals">
+              <div>
+                Income
+                <strong>{formatMMK(selectedPeriod.total_income || 0)}</strong>
+              </div>
+              <div>
+                Expenses
+                <strong>{formatMMK(selectedPeriod.total_expenses || 0)}</strong>
+              </div>
+              <div>
+                Net<strong>{formatMMK(selectedPeriod.net_income || 0)}</strong>
+              </div>
+              <div>
+                Transactions
+                <strong>{selectedPeriod.transaction_count || 0}</strong>
+              </div>
+            </div>
+          </div>
+          <div className="transaction-card">
+            {transactions
+              .filter((tx) => tx.period_id === selectedPeriod.id)
+              .map((tx) => (
+                <div className="transaction-row" key={tx.id}>
+                  <div className={`transaction-icon ${tx.type}`}>
+                    <span>{tx.type === "income" ? "+" : "−"}</span>
+                  </div>
+                  <div className="transaction-info">
+                    <strong>{tx.desc || tx.category}</strong>
+                    <span>
+                      {tx.category} · {tx.account} · {formatDate(tx.date)}
+                    </span>
+                  </div>
+                  <strong className={`transaction-amount ${tx.type}`}>
+                    {tx.type === "income" ? "+" : "−"}
+                    {formatMMK(tx.amount)}
+                  </strong>
+                </div>
+              ))}
+          </div>
+        </>
+      ) : (
+        <>
+          {!selectedPeriod && (
+            <div className="subheader-block archive-heading">
+              <h2>Archived Months</h2>
+              <p>Totals and transaction details from every month you closed.</p>
+            </div>
+          )}
+          {archivedPeriods.map((period) => (
+            <button
+              className="archive-card"
+              key={period.id}
+              onClick={() => { setSelectedMonthlySummary(null); setSelectedPeriod(period); }}
+            >
+              <span>
+                {period.start_date} – {period.end_date}
+              </span>
+              <strong>{period.name || "Financial Period"}</strong>
+              <div>
+                Income {formatMMK(period.total_income || 0)} · Expenses{" "}
+                {formatMMK(period.total_expenses || 0)}
+              </div>
+              <small>
+                Net {formatMMK(period.net_income || 0)} ·{" "}
+                {period.transaction_count || 0} transactions
+              </small>
+            </button>
+          ))}
+          {!!monthlySummaries.length && (
+            <div className="subheader-block archive-heading legacy-archive-heading">
+              <h2>Monthly Summaries</h2>
+              <p>Saved directly from your monthly_summaries records.</p>
+            </div>
+          )}
+          {monthlySummaries.map((summary) => (
+            <button className="archive-card legacy-summary-card" key={`monthly-${summary.id}`} onClick={() => {setSelectedPeriod(null);setSelectedMonthlySummary(summary)}}>
+              <span>PREVIOUS ARCHIVE · {new Date(summary.year, summary.month - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
+              <strong>{new Date(summary.year, summary.month - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })} summary</strong>
+              <div>Income {formatMMK(summary.total_income)} · Expenses {formatMMK(summary.total_expense)}</div>
+              <small>Net savings {formatMMK(summary.net_savings)} · Saved {new Date(summary.closed_at).toLocaleDateString()}</small>
+            </button>
+          ))}
+          {!archivedPeriods.length && !monthlySummaries.length && (
+            <div className="empty-state">No archived reports yet.</div>
+          )}
+        </>
+      ))}
     </div>
   );
 
@@ -1289,7 +1614,9 @@ export default function App() {
           })}
 
           {!loans.length && (
-            <div className="empty-state">No loans or borrowing records yet.</div>
+            <div className="empty-state">
+              No loans or borrowing records yet.
+            </div>
           )}
         </div>
       ) : (
@@ -1297,7 +1624,10 @@ export default function App() {
           {savings.map((saving) => {
             const progress =
               saving.target > 0
-                ? Math.min(100, Math.max(0, (saving.saved / saving.target) * 100))
+                ? Math.min(
+                    100,
+                    Math.max(0, (saving.saved / saving.target) * 100),
+                  )
                 : 0;
 
             return (
@@ -1365,7 +1695,7 @@ export default function App() {
 
   if (initializing) {
     return (
-      <div className="app-outer">
+      <div className={`app-outer${darkMode ? " dark" : ""}`}>
         <div className="app-shell loading-shell">
           <RefreshCw className="animate-spin text-blue-600" size={28} />
           <span>{syncStatus}</span>
@@ -1377,6 +1707,7 @@ export default function App() {
   if (!unlocked) {
     return (
       <PinScreen
+        darkMode={darkMode}
         onUnlocked={async () => {
           setInitializing(true);
           try {
@@ -1394,15 +1725,25 @@ export default function App() {
   }
 
   const anyModal =
-    addOpen || transferOpen || accountModal || loanModal || savingsModal;
+    addOpen ||
+    transferOpen ||
+    accountModal ||
+    loanModal ||
+    savingsModal ||
+    periodModal;
 
   return (
-    <div className="app-outer">
-      <div className="app-shell finance-app-shell">
+    <div className={`app-outer${darkMode ? " dark" : ""}`}>
+      <div
+        className={`app-shell finance-app-shell ios-surface${darkMode ? " dark" : ""}`}
+      >
         <TopBar
           title={title}
           syncStatus={syncStatus}
           isError={isError}
+          darkMode={darkMode}
+          onToggleTheme={() => setDarkMode((value) => !value)}
+          onInstallHelp={() => setShowInstallHelp(true)}
           onSync={() =>
             loadFinanceData().catch(() => {
               setSyncStatus("API Error");
@@ -1412,9 +1753,50 @@ export default function App() {
         />
 
         <main className="app-scroll hide-scrollbar">
+          {!online && (
+            <div className="offline-banner">
+              Offline · financial changes require a connection
+            </div>
+          )}
+          {installPrompt && (
+            <button
+              className="install-banner"
+              onClick={async () => {
+                const prompt = installPrompt as Event & {
+                  prompt?: () => Promise<void>;
+                };
+                await prompt.prompt?.();
+                setInstallPrompt(null);
+              }}
+            >
+              Install MyFinanceApp
+            </button>
+          )}
           {activeTab === "home" && renderHome()}
           {activeTab === "accounts" && renderAccounts()}
-          {activeTab === "history" && renderHistory()}
+          {activeTab === "records" && (
+            <div className="records-page">
+              <div className="plans-segmented records-segmented">
+                <button
+                  className={recordsTab === "history" ? "active" : ""}
+                  onClick={() => {
+                    setRecordsTab("history");
+                    setSelectedPeriod(null);
+                    setSelectedMonthlySummary(null);
+                  }}
+                >
+                  History
+                </button>
+                <button
+                  className={recordsTab === "archive" ? "active" : ""}
+                  onClick={() => { setRecordsTab("archive"); setSelectedPeriod(null); setSelectedMonthlySummary(null); }}
+                >
+                  Archive
+                </button>
+              </div>
+              {recordsTab === "history" ? renderHistory() : renderArchive()}
+            </div>
+          )}
           {activeTab === "budgets" && renderPlans()}
         </main>
 
@@ -1429,6 +1811,74 @@ export default function App() {
               <Plus size={28} strokeWidth={2.5} />
             </button>
           </>
+        )}
+
+        {showInstallHelp && (
+          <Sheet onClose={() => setShowInstallHelp(false)}>
+            <div className="sheet-header">
+              <div>
+                <span className="sheet-eyebrow">INSTALL MYFINANCEAPP</span>
+                <h2>Add to Home Screen</h2>
+              </div>
+              <button
+                className="sheet-close"
+                onClick={() => setShowInstallHelp(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="install-help">
+              <p>
+                <strong>iPhone or iPad</strong>
+                <br />
+                Open this page in Safari, tap Share, then choose{" "}
+                <b>Add to Home Screen</b>.
+              </p>
+              <p>
+                <strong>Android</strong>
+                <br />
+                Open in Chrome and tap Install, or use the browser menu →{" "}
+                <b>Install app</b>.
+              </p>
+              <small>
+                On iPhone, launch the saved icon for the standalone app view.
+              </small>
+            </div>
+          </Sheet>
+        )}
+
+
+        {periodModal && (
+          <Sheet onClose={() => setPeriodModal(false)}>
+            <div className="sheet-header">
+              <div>
+                <span className="sheet-eyebrow">MONTH SUMMARY</span>
+                <h2>Review &amp; Close Month</h2>
+              </div>
+              <button
+                className="sheet-close"
+                onClick={() => setPeriodModal(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="period-review">
+              <strong>{activePeriod?.name || "Current Month"}</strong>
+              <span>
+                Income {formatMMK(income)} · Expenses {formatMMK(expense)} · Net{" "}
+                {formatMMK(income - expense)}
+              </span>
+              <span>{periodTransactions.length} transactions</span>
+            </div>
+            {periodError && <div className="form-error">{periodError}</div>}
+            <button
+              className="primary-action period-close-action"
+              disabled={periodBusy}
+              onClick={closeMonth}
+            >
+              {periodBusy ? "Archiving…" : "Confirm Close Month"}
+            </button>
+          </Sheet>
         )}
 
         <AddTransactionModal
@@ -1452,7 +1902,10 @@ export default function App() {
                 <span className="sheet-eyebrow">ACCOUNT</span>
                 <h2>Add Account</h2>
               </div>
-              <button className="sheet-close" onClick={() => setAccountModal(false)}>
+              <button
+                className="sheet-close"
+                onClick={() => setAccountModal(false)}
+              >
                 <X size={18} />
               </button>
             </div>
@@ -1504,7 +1957,12 @@ export default function App() {
         )}
 
         {loanModal && (
-          <Sheet onClose={() => { setLoanModal(false); resetLoan(); }}>
+          <Sheet
+            onClose={() => {
+              setLoanModal(false);
+              resetLoan();
+            }}
+          >
             <div className="sheet-header">
               <div>
                 <span className="sheet-eyebrow">LOANS & BORROWING</span>
@@ -1512,7 +1970,10 @@ export default function App() {
               </div>
               <button
                 className="sheet-close"
-                onClick={() => { setLoanModal(false); resetLoan(); }}
+                onClick={() => {
+                  setLoanModal(false);
+                  resetLoan();
+                }}
               >
                 <X size={18} />
               </button>
@@ -1578,7 +2039,12 @@ export default function App() {
         )}
 
         {savingsModal && (
-          <Sheet onClose={() => { setSavingsModal(false); resetSaving(); }}>
+          <Sheet
+            onClose={() => {
+              setSavingsModal(false);
+              resetSaving();
+            }}
+          >
             <div className="sheet-header">
               <div>
                 <span className="sheet-eyebrow green-eyebrow">SAVINGS</span>
@@ -1588,7 +2054,10 @@ export default function App() {
               </div>
               <button
                 className="sheet-close"
-                onClick={() => { setSavingsModal(false); resetSaving(); }}
+                onClick={() => {
+                  setSavingsModal(false);
+                  resetSaving();
+                }}
               >
                 <X size={18} />
               </button>

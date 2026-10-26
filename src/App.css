@@ -1040,3 +1040,315 @@ button {
     font-size: 23px;
   }
 }
+/* Financial period and iOS glass accents */
+.glass-bottom-nav { }
+.period-banner,.period-empty,.archive-detail { margin: 0 16px 16px; padding: 18px; border-radius: 22px; background: rgba(255,255,255,.72); border: 1px solid rgba(255,255,255,.8); box-shadow: 0 10px 28px rgba(28,50,90,.08); }
+.period-banner,.period-empty { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.period-banner span,.period-empty span,.archive-detail>span { display:block; color:#64748b; font-size:10px; font-weight:800; letter-spacing:.09em; }
+.period-banner strong,.period-empty strong { display:block; margin-top:5px; font-size:17px; }
+.period-banner small { display:block; color:#64748b; margin-top:3px; }
+.period-banner button,.period-empty button { flex:none; border:0; border-radius:14px; padding:11px 13px; font-weight:700; color:#fff; background:linear-gradient(135deg,#4f46e5,#2563eb); }
+.period-empty p { margin:7px 0 0; max-width:230px; font-size:12px; color:#64748b; line-height:1.5; }
+.period-summary-label { margin: 0 20px -18px; color:#64748b; font-size:10px; font-weight:800; letter-spacing:.1em; }
+.period-review { display:grid; gap:9px; padding:14px; margin-bottom:16px; border-radius:16px; background:#f4f6fb; font-size:13px; color:#475569; }
+.period-review strong { font-size:16px; color:#0f172a; }
+.period-close-action { background:linear-gradient(135deg,#5b4be8,#2563eb)!important; }
+.history-filters { display:flex; gap:8px; overflow:auto; padding:0 16px 14px; }
+.history-filters button { border:1px solid #e2e8f0; background:#fff; border-radius:999px; padding:8px 13px; color:#64748b; font-size:12px; white-space:nowrap; }
+.history-filters button.active { color:#fff; background:#4f46e5; border-color:#4f46e5; }
+.archive-card { display:flex; flex-direction:column; gap:6px; width:calc(100% - 32px); margin:0 16px 12px; padding:16px; text-align:left; background:rgba(255,255,255,.78); border:1px solid #e5e7eb; border-radius:18px; color:#475569; }
+.archive-card span,.archive-card small { color:#64748b; font-size:11px; }
+.archive-card strong { color:#111827; font-size:16px; }
+.archive-detail { margin-top:0; }
+.archive-detail h2 { margin:6px 0; }
+.archive-detail p { font-size:12px; color:#64748b; }
+.archive-totals { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:15px; }
+.archive-totals div { padding:12px; border-radius:14px; background:rgba(241,245,249,.8); font-size:11px; color:#64748b; }
+.archive-totals strong { display:block; color:#111827; margin-top:5px; font-size:14px; }
+.offline-banner { margin:0 16px 12px; padding:10px 12px; border-radius:12px; background:#fff7ed; color:#9a3412; font-size:12px; }
+.glass-bottom-nav { background:rgba(255,255,255,.72); border:1px solid rgba(255,255,255,.75); }
+.ios-surface { width:min(100%,402px); max-width:402px; }
+.ios-surface .glass-bottom-nav { left:10px; right:10px; }
+.ios-surface.dark { color:#f8fafc; }
+.ios-glass-clear { -webkit-backdrop-filter:blur(24px); backdrop-filter:blur(24px); }
+@media(max-width:380px) { .period-banner,.period-empty { align-items:flex-start; flex-direction:column; } .app-shell { border:0; } }
+@media(min-width:700px) { .app-shell { max-width:402px; } }
+.install-banner { width:calc(100% - 32px); margin:0 16px 12px; padding:12px; border:0; border-radius:14px; color:#fff; font-weight:700; background:linear-gradient(135deg,#4f46e5,#2563eb); }
+.finance-sheet { max-height:90dvh; overflow-y:auto; }
+/* Unified History & Archive navigation */
+.records-page { padding-bottom: 4px; }
+.records-page > .page-content { padding-top: 8px; }
+.records-segmented { margin: 0 16px 14px; }
+.records-title { padding: 8px 18px 4px; }
+.records-title h2 { font-size: 17px; }
+/* Current app refresh: compact glass controls, colorful depth, dark theme, and mobile install flow */
+:root { color-scheme: light; --app-bg:#f4f6fb; --surface:#ffffff; --surface-muted:#f7f8fc; --ink:#151a2d; --muted:#718096; --line:rgba(148,163,184,.2); --accent:#4f46e5; }
+body,.app-outer { background:radial-gradient(ellipse at 50% 0%,#e8eaff 0%,var(--app-bg) 55%); color:var(--ink); transition:background .25s ease,color .25s ease; }
+.app-shell { background:var(--surface); border-color:var(--line); box-shadow:0 24px 90px rgba(28,42,84,.1); }
+.app-topbar { background:color-mix(in srgb,var(--surface) 83%,transparent); }
+.app-topbar h1 { color:var(--ink); }
+.sync-area { gap:7px; }
+.theme-toggle { width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--line);border-radius:50%;background:rgba(255,255,255,.7);color:var(--ink);cursor:pointer; }
+.finance-app-shell { --glow-one:rgba(91,91,255,.15);--glow-two:rgba(0,190,210,.13); }
+.finance-app-shell::before { background:var(--glow-one);width:240px;height:240px;right:-135px;top:195px;filter:blur(60px); }
+.finance-app-shell::after { background:var(--glow-two);width:200px;height:200px;left:-130px;bottom:105px;filter:blur(70px); }
+.balance-card { box-shadow:0 20px 42px rgba(67,56,202,.22); }
+.period-banner,.period-empty { background:linear-gradient(135deg,rgba(255,255,255,.85),rgba(245,247,255,.8)); border-color:rgba(255,255,255,.9); }
+.archive-close-card { margin:0 16px 18px;padding:19px;display:flex;align-items:center;gap:14px;border-radius:23px;color:#fff;box-shadow:0 16px 36px rgba(79,70,229,.2);background:linear-gradient(135deg,#7667ff 0%,#5b57e8 48%,#2fb8cf 130%); }
+.archive-close-icon { width:42px;height:42px;flex:none;display:grid;place-items:center;border-radius:15px;background:rgba(255,255,255,.19); }
+.archive-close-copy { min-width:0;flex:1; }
+.archive-close-copy>span { font-size:9px;font-weight:800;letter-spacing:.1em;opacity:.78; }
+.archive-close-copy h2 { margin:3px 0;font-size:17px; }
+.archive-close-copy p { margin:0;font-size:11px;opacity:.78; }
+.archive-close-card>button { border:0;border-radius:13px;padding:11px 13px;background:rgba(255,255,255,.92);color:#4840bc;font-size:12px;font-weight:800;white-space:nowrap; }
+.archive-heading { padding:8px 18px 12px; }
+.archive-heading h2 { margin-bottom:4px; }
+.archive-heading p { margin:0;color:var(--muted);font-size:12px; }
+.archive-actions { display:flex;justify-content:flex-end;margin:0 16px 8px; }
+.archive-install-link { display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--muted);font-size:12px; }
+.install-help { padding:5px 4px 18px;line-height:1.55; }
+.install-help p { padding:14px;border-radius:16px;background:var(--surface-muted);color:var(--muted);font-size:13px; }
+.install-help strong { color:var(--ink); }
+.install-help small { color:var(--muted); }
+.records-page { padding-bottom:20px; }
+.records-page>.page-content { padding-top:8px; }
+.records-segmented { margin:0 16px 14px; }
+.records-title { padding:8px 18px 4px; }
+.records-title h2 { font-size:17px; }
+.finance-sheet { background:var(--surface); }
+.ios-surface { position:relative;isolation:isolate;width:min(100%,402px);max-width:402px;min-height:100dvh; }
+.ios-surface.dark { color-scheme:dark;--app-bg:#101321;--surface:#171b2a;--surface-muted:#202638;--ink:#f4f6ff;--muted:#a4aec3;--line:rgba(203,213,225,.12);--accent:#9a94ff; }
+.ios-surface.dark .app-topbar { background:rgba(23,27,42,.86); }
+.ios-surface.dark .app-topbar h1,.ios-surface.dark .section-heading h2,.ios-surface.dark .transaction-info strong,.ios-surface.dark .account-list-info strong,.ios-surface.dark .archive-card strong { color:var(--ink); }
+.ios-surface.dark .app-outer,.ios-surface.dark .app-shell { background:var(--surface); }
+.ios-surface.dark .period-banner,.ios-surface.dark .period-empty,.ios-surface.dark .archive-detail,.ios-surface.dark .archive-card,.ios-surface.dark .transaction-card,.ios-surface.dark .plan-card,.ios-surface.dark .account-list-card { background:var(--surface-muted);border-color:var(--line);color:var(--ink); }
+.ios-surface.dark .history-filters button { background:var(--surface-muted);border-color:var(--line);color:var(--muted); }
+.ios-surface.dark .history-filters button.active { background:#5b57e8;color:#fff; }
+.ios-surface.dark .finance-input,.ios-surface.dark .pin-input { background:#202638;color:var(--ink);border-color:var(--line); }
+.ios-surface.dark .finance-label,.ios-surface.dark .transaction-info span,.ios-surface.dark .archive-detail p,.ios-surface.dark .archive-card span,.ios-surface.dark .archive-card small { color:var(--muted); }
+.ios-surface.dark .period-review,.ios-surface.dark .archive-totals div { background:#202638;color:var(--muted); }
+.ios-surface.dark .period-review strong,.ios-surface.dark .archive-totals strong { color:var(--ink); }
+.ios-surface.dark .glass-bottom-nav { background:rgba(28,33,49,.78);border-color:rgba(255,255,255,.13); }
+.ios-surface.dark .glass-nav-item { color:#b8c0d2; }
+.ios-surface.dark .glass-nav-item.active { color:#fff; }
+.ios-surface.dark .sync-button,.ios-surface.dark .theme-toggle { background:#252b3d;color:var(--ink);border-color:var(--line); }
+.ios-surface.dark .finance-sheet { background:#171b2a;color:var(--ink); }
+.ios-surface.dark .plan-card span,.ios-surface.dark .plan-money span { color:var(--muted); }
+@media (display-mode:standalone) { .app-shell { height:100dvh;min-height:100dvh; } .app-scroll { height:calc(100dvh - 76px);padding-bottom:calc(120px + env(safe-area-inset-bottom)); } .glass-bottom-nav { bottom:calc(12px + env(safe-area-inset-bottom)); } }
+@media(max-width:402px) { .ios-surface { width:100%;max-width:100%; } .archive-close-card { gap:10px;padding:15px; } .archive-close-card>button { padding:10px; } }
+@media(max-width:360px) { .archive-close-card { flex-wrap:wrap; } .archive-close-card>button { width:100%; } .sync-status { font-size:8px; } }
+/* Standalone iPhone display and responsive shell */
+.app-shell { width:100%;max-width:402px;height:100dvh;min-height:100dvh; }
+.ios-surface { min-height:100dvh; }
+.app-scroll { height:calc(100dvh - 76px);overscroll-behavior:contain;-webkit-overflow-scrolling:touch; }
+.app-topbar { padding-top:max(18px,env(safe-area-inset-top)); }
+@media (display-mode:standalone) { .glass-bottom-nav,.finance-fab { display:none!important; } .app-scroll { height:calc(100dvh - 76px - env(safe-area-inset-top));padding-bottom:calc(28px + env(safe-area-inset-bottom)); } }
+@media (display-mode:standalone) and (max-width:402px) { .app-topbar { height:calc(76px + env(safe-area-inset-top)); } .app-scroll { height:calc(100dvh - 76px - env(safe-area-inset-top)); } }
+@media (max-width:402px) { .app-shell { width:100%;max-width:100%; } .app-outer { width:100%;overflow-x:hidden; } }
+.archive-close-card.ios-glass-prominent { background:linear-gradient(135deg,#7164f7,#5050dd 60%,#17aec5); }
+/* Full viewport layout and consistent dark palette across every surface */
+html,body,#root,.app-outer { width:100%;min-height:100%; }
+.app-outer { min-height:100dvh;width:100vw; }
+.app-shell,.ios-surface { width:100%;max-width:none;height:100dvh;min-height:100dvh; }
+.app-shell { border:0; }
+.app-scroll { height:calc(100dvh - 76px); }
+html,body,#root { height:100%; }
+body { min-height:100dvh;overflow:hidden; }
+.app-outer { height:100dvh;min-height:100dvh;justify-content:stretch; }
+.app-shell { flex:1 1 auto; }
+.app-outer.dark,html.dark,body:has(.app-outer.dark) { background:#101321;color:#f4f6ff; }
+.app-outer.dark .app-shell { background:#141827;color:#f4f6ff;border-color:transparent; }
+.ios-surface.dark { color-scheme:dark;--app-bg:#101321;--surface:#171b2a;--surface-muted:#202638;--ink:#f4f6ff;--muted:#b7c1d4;--line:rgba(203,213,225,.17);--accent:#aaa4ff;background:#141827;color:#f4f6ff; }
+.ios-surface.dark .app-topbar { background:rgba(20,24,39,.94);border-bottom:1px solid rgba(255,255,255,.06); }
+.ios-surface.dark .app-topbar h1,.ios-surface.dark .section-heading h2,.ios-surface.dark .subheader-block h2,.ios-surface.dark .transaction-info strong,.ios-surface.dark .account-list-info strong,.ios-surface.dark .archive-card strong,.ios-surface.dark .plan-card strong,.ios-surface.dark .plan-money strong,.ios-surface.dark .period-review strong,.ios-surface.dark .archive-totals strong,.ios-surface.dark .sheet-header h2,.ios-surface.dark .legacy-breakdown h3 { color:#f4f6ff!important; }
+.ios-surface.dark .page-content,.ios-surface.dark .section-heading,.ios-surface.dark .subheader-block,.ios-surface.dark .period-summary-label,.ios-surface.dark .transaction-info,.ios-surface.dark .account-list-info,.ios-surface.dark .plan-card,.ios-surface.dark .plan-money,.ios-surface.dark .archive-detail,.ios-surface.dark .legacy-breakdown { color:#f4f6ff; }
+.ios-surface.dark .app-topbar,.ios-surface.dark .finance-sheet,.ios-surface.dark .transaction-card,.ios-surface.dark .archive-detail,.ios-surface.dark .archive-card,.ios-surface.dark .account-list-card,.ios-surface.dark .plan-card,.ios-surface.dark .period-empty,.ios-surface.dark .period-banner,.ios-surface.dark .legacy-breakdown { background:#202638!important;border-color:rgba(203,213,225,.14)!important; }
+.ios-surface.dark .archive-close-card { background:linear-gradient(135deg,#5146bc,#373b82 65%,#146d7f)!important; }
+.ios-surface.dark .archive-card,.ios-surface.dark .archive-card div,.ios-surface.dark .legacy-breakdown-row span { color:#e2e8f0!important; }
+.ios-surface.dark .archive-card span,.ios-surface.dark .archive-card small,.ios-surface.dark .period-empty p,.ios-surface.dark .period-banner small,.ios-surface.dark .archive-detail p,.ios-surface.dark .transaction-info span,.ios-surface.dark .account-list-info span,.ios-surface.dark .plan-card span,.ios-surface.dark .plan-money span,.ios-surface.dark .legacy-breakdown-row small { color:#b7c1d4!important; }
+.ios-surface.dark .archive-totals div,.ios-surface.dark .period-review,.ios-surface.dark .legacy-breakdown-row { background:#171c2b!important;color:#d7deeb!important;border-color:rgba(203,213,225,.12)!important; }
+.ios-surface.dark .finance-input,.ios-surface.dark .pin-input,.ios-surface.dark input,.ios-surface.dark select,.ios-surface.dark textarea { color:#f4f6ff!important;background:#171c2b!important;border-color:rgba(203,213,225,.22)!important; }
+.ios-surface.dark input::placeholder,.ios-surface.dark textarea::placeholder { color:#9aa6bd!important; }
+.ios-surface.dark .history-filters button { color:#d7deeb;background:#202638;border-color:rgba(203,213,225,.18); }
+.ios-surface.dark .form-error { color:#fecaca;background:#451f2b;border-color:#723247; }
+.ios-surface.dark .empty-state { color:#b7c1d4; }
+.ios-surface.dark .install-help p { color:#d7deeb;background:#202638; }
+.ios-surface.dark .install-help strong { color:#fff; }
+.ios-surface.dark .glass-bottom-nav { background:rgba(24,29,45,.94);border-color:rgba(255,255,255,.15); }
+.ios-surface.dark .glass-nav-item { color:#c3cce0; }
+.ios-surface.dark .glass-nav-item.active { color:#fff; }
+.ios-surface.dark .sync-button,.ios-surface.dark .theme-toggle,.ios-surface.dark .sheet-close,.ios-surface.dark .edit-icon { color:#f4f6ff;background:#252b3d;border-color:rgba(203,213,225,.18); }
+.ios-surface.dark .finance-sheet { background:#171b2a!important;color:#f4f6ff!important; }
+.ios-surface.dark .finance-sheet * { color:inherit; }
+.ios-surface.dark .finance-sheet .sheet-eyebrow { color:#aaa4ff; }
+.ios-surface.dark .finance-sheet .primary-action,.ios-surface.dark .finance-sheet .form-segment button.active { color:#fff; }
+.ios-surface.dark .finance-fab { border-color:#202638; }
+@media (display-mode:standalone) { .app-shell,.ios-surface { height:100dvh;min-height:100dvh; } .app-scroll { height:calc(100dvh - 76px - env(safe-area-inset-top));padding-bottom:calc(28px + env(safe-area-inset-bottom)); } .glass-bottom-nav,.finance-fab { display:none!important; } }
+.ios-surface.dark .pin-content h1,.ios-surface.dark .pin-content p,.ios-surface.dark .finance-label { color:#f4f6ff!important; }
+.ios-surface.dark .pin-content p,.ios-surface.dark .finance-label { color:#b7c1d4!important; }
+.ios-surface.dark .form-segment { background:#202638;border-color:rgba(203,213,225,.15); }
+.ios-surface.dark .form-segment button { color:#d7deeb; }
+.ios-surface.dark .finance-sheet .form-error { color:#fecaca!important;background:#451f2b!important; }
+.ios-surface.dark .finance-sheet .sheet-close { color:#f4f6ff!important; }
+.ios-surface.dark .subheader-row p,.ios-surface.dark .subheader-block p,.ios-surface.dark .section-heading p,.ios-surface.dark .target-text,.ios-surface.dark .sync-status,.ios-surface.dark .account-balance-label,.ios-surface.dark .summary-label,.ios-surface.dark .chart-label,.ios-surface.dark .empty-state p { color:#b7c1d4!important; }
+.ios-surface.dark .transaction-row,.ios-surface.dark .account-row,.ios-surface.dark .plan-row,.ios-surface.dark .history-row { border-color:rgba(203,213,225,.13)!important; }
+.ios-surface.dark .secondary-action,.ios-surface.dark .archive-actions button { color:#d7deeb; }
+.ios-surface.dark .account-card { background:#202638!important;border-color:rgba(203,213,225,.14)!important;color:#f4f6ff!important;box-shadow:none; }
+.ios-surface.dark .account-card span { color:#b7c1d4!important; }
+.ios-surface.dark .account-card strong { color:#f4f6ff!important; }
+.ios-surface.dark .transaction-card { background:#202638!important;border-color:rgba(203,213,225,.14)!important; }
+.ios-surface.dark .transaction-row,.ios-surface.dark .transaction-divider { background:transparent!important;border-color:rgba(203,213,225,.14)!important; }
+.ios-surface.dark .transaction-info strong { color:#f4f6ff!important; }
+.ios-surface.dark .transaction-info span { color:#b7c1d4!important; }
+.ios-surface.dark .plans-segmented,.ios-surface.dark .records-segmented { background:#202638;border-color:rgba(203,213,225,.16); }
+.ios-surface.dark .plans-segmented button,.ios-surface.dark .records-segmented button { color:#c5cede; }
+.ios-surface.dark .plans-segmented button.active,.ios-surface.dark .records-segmented button.active { color:#fff; }
+.ios-surface.dark .account-list-card,.ios-surface.dark .plan-card,.ios-surface.dark .archive-detail,.ios-surface.dark .legacy-breakdown,.ios-surface.dark .period-review { color:#f4f6ff!important; }
+.ios-surface.dark .account-list-info strong,.ios-surface.dark .plan-card strong,.ios-surface.dark .archive-detail h2,.ios-surface.dark .legacy-breakdown h3 { color:#f4f6ff!important; }
+.ios-surface.dark .account-list-info span,.ios-surface.dark .plan-card span,.ios-surface.dark .archive-detail p,.ios-surface.dark .legacy-breakdown-row small { color:#b7c1d4!important; }
+.ios-surface.dark .empty-state { background:#202638;color:#c5cede!important;border-color:rgba(203,213,225,.14); }
+.ios-surface.dark .balance-card { color:#fff!important; }
+.ios-surface.dark .balance-card .balance-label,.ios-surface.dark .balance-card .balance-stats span,.ios-surface.dark .balance-card .balance-value span { color:rgba(255,255,255,.82)!important; }
+.ios-surface.dark .finance-sheet,.ios-surface.dark .finance-sheet label,.ios-surface.dark .finance-sheet .sheet-header h2,.ios-surface.dark .finance-sheet .finance-label { color:#f4f6ff!important; }
+.ios-surface.dark .finance-sheet .finance-input { color:#f4f6ff!important;background:#171c2b!important; }
+.ios-surface.dark .finance-sheet .form-segment { background:#252b3d!important; }
+@media(max-width:402px) { .app-scroll { height:calc(100dvh - 76px - env(safe-area-inset-top)); } }
+.legacy-summary-report { display:grid;gap:14px; }
+.legacy-summary-detail { margin:0; }
+.legacy-summary-card { border-left:4px solid #8b83ff!important; }
+.legacy-breakdown { margin:0 16px 14px;padding:16px;border-radius:18px;background:#fff;border:1px solid #e5e7eb; }
+.legacy-breakdown h3 { margin:0 0 10px;color:#172033;font-size:14px; }
+.legacy-breakdown-row { display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #edf0f5;color:#172033;font-size:13px; }
+.legacy-breakdown-row strong { text-align:right;font-size:13px; }
+.legacy-breakdown-row small { color:#64748b; }
+.ios-surface.dark .legacy-breakdown h3 { color:#f4f6ff; }
+
+/* Header actions: keep the theme switch directly beside the API sync status. */
+.sync-area { display:flex;align-items:center;gap:8px; }
+.sync-status { white-space:nowrap; }
+.theme-toggle.ios-glass { background:rgba(255,255,255,.58);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4); }
+.install-icon-button { flex:none; }
+.ios-surface.dark .theme-toggle.ios-glass { background:rgba(38,44,62,.78); }
+.legacy-summary-card { text-align:left; }
+.legacy-summary-card strong { display:block;margin:5px 0 7px; }
+@media(max-width:380px) { .sync-area { gap:5px; } .sync-status { max-width:70px;overflow:hidden;text-overflow:ellipsis; } .theme-toggle { width:32px;height:32px; } }
+
+/* Dark-mode polish: History / Archive tabs, transaction rows and archived report breakdowns */
+.ios-surface.dark .records-segmented,
+.ios-surface.dark .records-segmented button,
+.ios-surface.dark .history-filters,
+.ios-surface.dark .history-filters button {
+  color: #dce4f3;
+}
+.ios-surface.dark .records-segmented button.active,
+.ios-surface.dark .history-filters button.active {
+  color: #fff !important;
+  background: linear-gradient(135deg, #665cf0, #4f46e5) !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 12px rgba(79,70,229,.28);
+}
+.ios-surface.dark .transaction-card,
+.ios-surface.dark .transaction-row,
+.ios-surface.dark .transaction-divider,
+.ios-surface.dark .history-row,
+.ios-surface.dark .archive-detail,
+.ios-surface.dark .legacy-breakdown,
+.ios-surface.dark .legacy-breakdown-row,
+.ios-surface.dark .archive-totals > div {
+  background-color: #202638 !important;
+  color: #e8edf8 !important;
+  border-color: rgba(203,213,225,.14) !important;
+}
+.ios-surface.dark .transaction-row:hover,
+.ios-surface.dark .history-row:hover,
+.ios-surface.dark .archive-card:hover {
+  background-color: #283149 !important;
+}
+.ios-surface.dark .transaction-info strong,
+.ios-surface.dark .transaction-row strong,
+.ios-surface.dark .history-row strong,
+.ios-surface.dark .archive-detail strong,
+.ios-surface.dark .legacy-breakdown-row strong,
+.ios-surface.dark .archive-totals strong {
+  color: #f4f7ff !important;
+}
+.ios-surface.dark .transaction-info span,
+.ios-surface.dark .transaction-row span,
+.ios-surface.dark .history-row span,
+.ios-surface.dark .archive-detail p,
+.ios-surface.dark .legacy-breakdown-row small,
+.ios-surface.dark .archive-totals > div {
+  color: #b7c1d4 !important;
+}
+.ios-surface.dark .transaction-icon.expense { background: rgba(244,63,94,.15) !important; color: #fda4af !important; }
+.ios-surface.dark .transaction-icon.income { background: rgba(16,185,129,.15) !important; color: #6ee7b7 !important; }
+.ios-surface.dark .archive-card { background: #202638 !important; border-color: rgba(203,213,225,.14) !important; }
+.ios-surface.dark .archive-card:focus-visible,
+.ios-surface.dark .records-segmented button:focus-visible,
+.ios-surface.dark .history-filters button:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; }
+
+/* Header action order: install/device, appearance, then API sync status. */
+.sync-area { display:flex; align-items:center; justify-content:flex-end; gap:7px; }
+.sync-area .install-icon-button { order:0; }
+.sync-area .theme-toggle:not(.install-icon-button) { order:1; }
+.sync-area .sync-button { order:2; }
+.sync-area .sync-status { order:3; }
+
+/* Consistent, high-contrast segmented tabs and filter chips in dark mode. */
+.ios-surface.dark .plans-segmented,
+.ios-surface.dark .records-segmented {
+  background: #171d2d !important;
+  border-color: rgba(148,163,184,.25) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+.ios-surface.dark .plans-segmented button,
+.ios-surface.dark .records-segmented button {
+  color: #cbd5e1 !important;
+  background: transparent;
+  transition: background .18s ease, color .18s ease, box-shadow .18s ease;
+}
+.ios-surface.dark .plans-segmented button.active,
+.ios-surface.dark .records-segmented button.active {
+  color: #fff !important;
+  background: linear-gradient(135deg, #4f46e5, #3730a3) !important;
+  border: 1px solid rgba(165,180,252,.28) !important;
+  box-shadow: 0 3px 12px rgba(79,70,229,.3), inset 0 1px 0 rgba(255,255,255,.14);
+}
+.ios-surface.dark .history-filters button {
+  color: #cbd5e1 !important;
+  background: #202638 !important;
+  border-color: rgba(148,163,184,.25) !important;
+}
+.ios-surface.dark .history-filters button.active {
+  color: #fff !important;
+  background: linear-gradient(135deg, #4f46e5, #3730a3) !important;
+  border-color: rgba(165,180,252,.28) !important;
+}
+@media (max-width: 380px) {
+  .sync-area { gap: 5px; }
+  .sync-status { max-width: 64px; font-size: 8px; }
+}
+/* Final dark-mode pass: dashboard, accounts, transaction sheet and navigation */
+.ios-surface.dark{background:#141827!important;color:#f4f6ff;--app-bg:#141827;--surface:#202638;--surface-muted:#252b3d;--ink:#f4f6ff;--muted:#b7c1d4;--line:rgba(203,213,225,.16)}
+.ios-surface.dark .app-scroll,.ios-surface.dark .page-content,.ios-surface.dark .accounts-page,.ios-surface.dark .history-page,.ios-surface.dark .archive-page,.ios-surface.dark .plans-page{color:#f4f6ff}
+.ios-surface.dark .account-card,.ios-surface.dark .account-list-card,.ios-surface.dark .transaction-card,.ios-surface.dark .period-empty,.ios-surface.dark .archive-card,.ios-surface.dark .archive-detail,.ios-surface.dark .plan-card,.ios-surface.dark .history-row,.ios-surface.dark .account-row,.ios-surface.dark .plan-row{background:#202638!important;color:#f4f6ff!important;border-color:rgba(203,213,225,.17)!important;box-shadow:0 5px 18px rgba(0,0,0,.12)}
+.ios-surface.dark .account-card span,.ios-surface.dark .account-list-info span,.ios-surface.dark .account-balance-label,.ios-surface.dark .summary-label,.ios-surface.dark .chart-label,.ios-surface.dark .subheader-row p,.ios-surface.dark .section-heading p,.ios-surface.dark .page-content p{color:#b7c1d4!important}
+.ios-surface.dark .account-card strong,.ios-surface.dark .account-list-info strong,.ios-surface.dark .transaction-amount,.ios-surface.dark .history-row strong,.ios-surface.dark .account-row strong,.ios-surface.dark .plan-row strong{color:#f4f6ff}
+.ios-surface.dark .glass-bottom-nav{background:rgba(28,33,49,.96)!important;border:1px solid rgba(226,232,240,.22)!important;box-shadow:0 -8px 28px rgba(0,0,0,.24)}
+.ios-surface.dark .glass-bottom-nav::before{background:linear-gradient(180deg,rgba(46,53,75,.94),rgba(24,29,45,.96))}
+.ios-surface.dark .glass-nav-item{color:#aeb9cf!important}.ios-surface.dark .glass-nav-item.active{color:#fff!important;background:rgba(148,163,184,.22)!important;border-radius:17px}
+.ios-surface.dark .finance-fab{background:linear-gradient(145deg,#4385ff,#3948e8)!important;color:#fff!important;border:2px solid rgba(226,232,240,.2)!important;box-shadow:0 8px 22px rgba(37,99,235,.4)}
+.ios-surface.dark .finance-sheet{background:#171b2a!important;color:#f4f6ff!important;border:1px solid rgba(226,232,240,.14)!important;box-shadow:0 -18px 60px rgba(0,0,0,.42)}
+.ios-surface.dark .finance-sheet label,.ios-surface.dark .finance-sheet .sheet-header h2,.ios-surface.dark .finance-sheet .sheet-eyebrow,.ios-surface.dark .finance-sheet .finance-label{color:#e8edfa!important}
+.ios-surface.dark .finance-sheet .finance-input,.ios-surface.dark .finance-sheet .pin-input,.ios-surface.dark .finance-sheet input,.ios-surface.dark .finance-sheet select,.ios-surface.dark .finance-sheet textarea{background:#202638!important;color:#f4f6ff!important;border:1px solid rgba(203,213,225,.2)!important;caret-color:#a5b4fc}
+.ios-surface.dark .finance-sheet input::placeholder,.ios-surface.dark .finance-sheet textarea::placeholder{color:#9ca9bf!important}
+.ios-surface.dark .finance-sheet .form-segment{background:#252b3d!important;border:1px solid rgba(203,213,225,.15)!important}.ios-surface.dark .finance-sheet .form-segment button{color:#d7deeb!important;background:transparent}.ios-surface.dark .finance-sheet .form-segment button.active{color:#fff!important;background:#3f46d8!important;box-shadow:0 2px 8px rgba(0,0,0,.22)}
+.ios-surface.dark .finance-sheet .sheet-close{color:#f4f6ff!important;background:#293147!important;border-color:rgba(203,213,225,.16)!important}.ios-surface.dark .finance-sheet .primary-action{color:#fff!important}
+.ios-surface.dark .finance-sheet .secondary-action,.ios-surface.dark .finance-sheet .archive-actions button{background:#252b3d;color:#e2e8f0!important;border-color:rgba(203,213,225,.18)}
+.ios-surface.dark .records-segmented,.ios-surface.dark .plans-segmented{background:#1a2030!important;border-color:rgba(203,213,225,.16)!important}.ios-surface.dark .records-segmented button,.ios-surface.dark .plans-segmented button{color:#c5cede!important}
+.ios-surface.dark .records-segmented button.active,.ios-surface.dark .plans-segmented button.active{background:linear-gradient(135deg,#4f46e5,#3730a3)!important;color:#fff!important;box-shadow:0 3px 12px rgba(79,70,229,.24)}
+.ios-surface.dark .history-filters button{background:#202638!important;color:#cbd5e1!important;border-color:rgba(203,213,225,.2)!important}.ios-surface.dark .history-filters button.active{background:#4f46e5!important;color:#fff!important;border-color:#6366f1!important}
+.ios-surface.dark .empty-state,.ios-surface.dark .period-review,.ios-surface.dark .archive-totals>div,.ios-surface.dark .legacy-breakdown-row{background:#171c2b!important;color:#d7deeb!important;border-color:rgba(203,213,225,.14)!important}.ios-surface.dark .empty-state p,.ios-surface.dark .archive-totals span,.ios-surface.dark .legacy-breakdown-row small{color:#b7c1d4!important}
+.ios-surface.dark .transaction-divider,.ios-surface.dark .transaction-row,.ios-surface.dark .history-row,.ios-surface.dark .account-row{border-color:rgba(203,213,225,.13)!important}
+.ios-surface.dark button:focus-visible,.ios-surface.dark input:focus-visible,.ios-surface.dark select:focus-visible,.ios-surface.dark textarea:focus-visible{outline:2px solid #a5b4fc;outline-offset:2px}
+@media(max-width:360px){.app-topbar{padding-left:14px;padding-right:14px}.sync-area{gap:6px}.sync-status{font-size:8px}.account-list-card{padding:12px}.finance-sheet{padding-left:16px;padding-right:16px}}

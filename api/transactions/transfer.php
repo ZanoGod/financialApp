@@ -29,10 +29,12 @@ try {
     // 1. Deduct from Source Account
     $stmtOut = $db->prepare("UPDATE accounts SET balance = balance - :amount WHERE id = :id");
     $stmtOut->execute(['amount' => $amount, 'id' => $fromAccountId]);
+    if ($stmtOut->rowCount() !== 1) Response::error('Source account not found.', 404);
 
     // 2. Add to Destination Account
     $stmtIn = $db->prepare("UPDATE accounts SET balance = balance + :amount WHERE id = :id");
     $stmtIn->execute(['amount' => $amount, 'id' => $toAccountId]);
+    if ($stmtIn->rowCount() !== 1) Response::error('Destination account not found.', 404);
 
     $db->commit();
     Response::success('Transfer completed successfully.');

@@ -11,10 +11,11 @@ final class Transaction
     public function list(): array
     {
         $statement = $this->db->query(
-            'SELECT t.*, a.name AS account_name, c.name AS category_name
+            'SELECT t.*, a.name AS account_name, c.name AS category_name, p.name AS period_name, p.status AS period_status
              FROM transactions t
              INNER JOIN accounts a ON a.id = t.account_id
              LEFT JOIN transaction_categories c ON c.id = t.category_id
+             LEFT JOIN financial_periods p ON p.id = t.period_id
              ORDER BY t.transaction_date DESC, t.id DESC'
         );
 
@@ -48,15 +49,22 @@ final class Transaction
         $amount = Validator::positiveAmount($input['amount'], 'amount');
         $date = $this->date($input['date']);
         $description = Validator::optionalString($input['desc'] ?? $input['description'] ?? null, 255);
+        $periodStatement = $this->db->query("SELECT id FROM financial_periods WHERE status='active' ORDER BY start_date DESC LIMIT 1");
+        $activePeriod = $periodStatement->fetch();
+        if (!$activePeriod) Response::error('Start a financial period before recording transactions.', 409);
+        $periodId = (int) $activePeriod['id'];
+        $periodDates = $this->db->prepare("SELECT start_date FROM financial_periods WHERE id=:id");
+        $periodDates->execute(['id' => $periodId]);
+        if ($date < (string)$periodDates->fetchColumn()) Response::error('Transaction date is earlier than the active period start date.', 422);
 
         $this->db->beginTransaction();
 
         try {
             $statement = $this->db->prepare(
                 'INSERT INTO transactions
-                    (account_id, category_id, amount, type, description, transaction_date)
+                    (account_id, category_id, amount, type, description, transaction_date, period_id)
                  VALUES
-                    (:account_id, :category_id, :amount, :type, :description, :transaction_date)'
+                    (:account_id, :category_id, :amount, :type, :description, :transaction_date, :period_id)'
             );
             $statement->execute([
                 'account_id' => $accountId,
@@ -65,6 +73,7 @@ final class Transaction
                 'type' => $type,
                 'description' => $description,
                 'transaction_date' => $date,
+                'period_id' => $periodId,
             ]);
 
             $transactionId = (int) $this->db->lastInsertId();
@@ -103,6 +112,13 @@ final class Transaction
         $date = array_key_exists('date', $input)
             ? $this->date($input['date'])
             : (string) $existing['transaction_date'];
+        if ($existing['period_id'] !== null) {
+            $periodCheck = $this->db->prepare('SELECT start_date, end_date, status FROM financial_periods WHERE id=:id');
+            $periodCheck->execute(['id' => $existing['period_id']]);
+            $period = $periodCheck->fetch();
+            if ($period && ($date < $period['start_date'] || ($period['end_date'] !== null && $date > $period['end_date']))) Response::error('Transaction date must stay within its assigned financial period.', 422);
+            if ($period && $period['status'] === 'archived') Response::error('Archived transactions are read-only. Use an explicit correction workflow.', 409);
+        }
         $description = array_key_exists('desc', $input) || array_key_exists('description', $input)
             ? Validator::optionalString($input['desc'] ?? $input['description'] ?? null, 255)
             : $existing['description'];
@@ -267,6 +283,9 @@ final class Transaction
             'date' => (string) $transaction['transaction_date'],
             'desc' => (string) ($transaction['description'] ?? ''),
             'created_at' => $transaction['created_at'] ?? null,
+            'period_id' => isset($transaction['period_id']) ? (int) $transaction['period_id'] : null,
+            'period_name' => $transaction['period_name'] ?? null,
+            'period_status' => $transaction['period_status'] ?? null,
             'updated_at' => $transaction['updated_at'] ?? null,
         ];
     }

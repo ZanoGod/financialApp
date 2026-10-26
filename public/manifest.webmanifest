@@ -1,0 +1,1 @@
+﻿{"name":"MyFinanceApp","short_name":"Finance","description":"Personal finance dashboard","start_url":"/finance-app/","scope":"/finance-app/","display":"standalone","background_color":"#f5f7fb","theme_color":"#f5f7fb","icons":[{"src":"/finance-app/icons/finance-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
