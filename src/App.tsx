@@ -16,9 +16,13 @@ import {
   RefreshCw,
   PiggyBank,
   Pencil,
+<<<<<<< HEAD
   Sun,
   Moon,
   Smartphone,
+=======
+  Archive,
+>>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
 } from "lucide-react";
 import "./App.css";
 
@@ -102,6 +106,16 @@ interface CategoryData {
   type: string;
 }
 
+interface MonthlySummaryData {
+  id: number;
+  year: number;
+  month: number;
+  total_income: string | number;
+  total_expense: string | number;
+  net_savings: string | number;
+  notes?: string | null;
+}
+
 interface PinResponse {
   token: string;
   expires_at: number;
@@ -144,6 +158,7 @@ const errorMessage = (error: unknown) => {
   return "Something went wrong.";
 };
 
+/* UPGRADED: Sleek Swipeable Item to prevent glass color bleed */
 const SwipeableItem = ({
   children,
   onDelete,
@@ -175,21 +190,25 @@ const SwipeableItem = ({
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
-      <div className="absolute inset-y-0 right-0 w-20 bg-red-500 flex items-center justify-center">
+      {/* Background action layer is only visible during swipe */}
+      <div
+        className="absolute inset-y-0 right-0 w-24 flex items-center justify-end pr-5 transition-opacity duration-200"
+        style={{ opacity: offset < -10 ? 1 : 0 }}
+      >
         <button
           onClick={onDelete}
-          className="w-full h-full flex items-center justify-center text-white"
+          className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white shadow-md active:scale-[0.96] transition-transform"
           aria-label="Delete"
         >
-          <Trash2 size={19} />
+          <Trash2 size={18} />
         </button>
       </div>
 
       <div
-        className="relative bg-white"
+        className="relative z-10 w-full h-full"
         style={{
           transform: `translateX(${offset}px)`,
-          transition: dragging ? "none" : "transform 220ms ease",
+          transition: dragging ? "none" : "transform 250ms cubic-bezier(0.2, 0, 0, 1)",
           touchAction: "pan-y",
         }}
         onTouchStart={(e) => start(e.touches[0].clientX)}
@@ -250,7 +269,15 @@ const TopBar = ({
           className={syncStatus === "Syncing..." ? "animate-spin" : ""}
         />
       </button>
+<<<<<<< HEAD
       <span className={`sync-status ${isError ? "error" : ""}`}>
+=======
+
+      {/* NEW: Dynamic classes for the new glowing pill design */}
+      <span 
+        className={`sync-status ${isError ? "error" : syncStatus === "Syncing..." ? "syncing" : ""}`}
+      >
+>>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
         <span className="sync-dot" />
         {syncStatus}
       </span>
@@ -313,7 +340,7 @@ const Sheet = ({
   onClose: () => void;
 }) => (
   <div
-    className="fixed inset-0 z-[80] bg-zinc-950/55 backdrop-blur-sm flex items-end justify-center"
+    className="fixed inset-0 z-[80] bg-zinc-950/40 backdrop-blur-sm flex items-end justify-center"
     onMouseDown={(e) => {
       if (e.target === e.currentTarget) onClose();
     }}
@@ -469,7 +496,12 @@ const TransferModal = ({
   if (!open) return null;
 
   const fromId = from || accounts[0]?.id.toString() || "";
+<<<<<<< HEAD
   const toId = to || (accounts[1]?.id ?? accounts[0]?.id)?.toString() || "";
+=======
+  const toId =
+    to || (accounts[1]?.id ?? accounts[0]?.id)?.toString() || "";
+>>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -572,7 +604,104 @@ const TransferModal = ({
   );
 };
 
+<<<<<<< HEAD
 const PinScreen = ({ onUnlocked, darkMode }: { onUnlocked: () => Promise<void>; darkMode: boolean }) => {
+=======
+const CloseMonthModal = ({
+  open,
+  onClose,
+  onCloseMonth,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCloseMonth: (data: { year: number; month: number; notes: string }) => Promise<void>;
+}) => {
+  const [year, setYear] = useState(new Date().getFullYear().toString());
+  const [month, setMonth] = useState((new Date().getMonth() + 1).toString());
+  const [notes, setNotes] = useState("");
+  const [error, setError] = useState("");
+
+  if (!open) return null;
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const y = parseInt(year, 10);
+    const m = parseInt(month, 10);
+
+    if (!y || !m || m < 1 || m > 12) {
+      setError("Please enter a valid year and month (1-12).");
+      return;
+    }
+
+    try {
+      await onCloseMonth({ year: y, month: m, notes });
+      setNotes("");
+      onClose();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  return (
+    <Sheet onClose={onClose}>
+      <div className="sheet-header">
+        <div>
+          <span className="sheet-eyebrow">ARCHIVE</span>
+          <h2>Close Month</h2>
+        </div>
+        <button className="sheet-close" onClick={onClose}>
+          <X size={18} />
+        </button>
+      </div>
+
+      {error && <div className="form-error">{error}</div>}
+
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="finance-label">Year</label>
+            <input
+              className="finance-input"
+              type="number"
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="finance-label">Month (1-12)</label>
+            <input
+              className="finance-input"
+              type="number"
+              min="1"
+              max="12"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="finance-label">Notes (Optional)</label>
+          <input
+            className="finance-input"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="e.g., End of Month Snapshot"
+          />
+        </div>
+
+        <button className="primary-action transfer" type="submit">
+          Save Snapshot
+        </button>
+      </form>
+    </Sheet>
+  );
+};
+
+const PinScreen = ({ onUnlocked }: { onUnlocked: () => Promise<void> }) => {
+>>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
   const [pin, setPin] = useState("");
   const [remember, setRemember] = useState<24 | 48>(48);
   const [error, setError] = useState("");
@@ -599,8 +728,18 @@ const PinScreen = ({ onUnlocked, darkMode }: { onUnlocked: () => Promise<void>; 
   };
 
   return (
+<<<<<<< HEAD
     <div className={`app-outer${darkMode ? " dark" : ""}`}>
       <div className={`app-shell pin-shell${darkMode ? " dark" : ""}`}>
+=======
+    <div className="app-outer">
+      <div className="liquid-background">
+        <div className="blob blob-purple"></div>
+        <div className="blob blob-cyan"></div>
+        <div className="blob blob-red"></div>
+      </div>
+      <div className="app-shell pin-shell glass-surface">
+>>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
         <div className="pin-content">
           <span className="pin-eyebrow">PERSONAL FINANCE</span>
           <h1>Enter PIN</h1>
@@ -664,6 +803,7 @@ export default function App() {
   const [loans, setLoans] = useState<LoanData[]>([]);
   const [categories, setCategories] = useState<CategoryData[]>([]);
   const [savings, setSavings] = useState<SavingsData[]>([]);
+<<<<<<< HEAD
   const [activePeriod, setActivePeriod] = useState<FinancialPeriod | null>(
     null,
   );
@@ -680,6 +820,13 @@ export default function App() {
   const [online, setOnline] = useState(navigator.onLine);
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
   const [showInstallHelp, setShowInstallHelp] = useState(false);
+=======
+  const [archives, setArchives] = useState<MonthlySummaryData[]>([]);
+  const [archiveDebug, setArchiveDebug] = useState<string>("");
+
+  const [historyTab, setHistoryTab] = useState<"transactions" | "archives">("transactions");
+  const [closeMonthModalOpen, setCloseMonthModalOpen] = useState(false);
+>>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
 
   const [unlocked, setUnlocked] = useState(false);
   const [initializing, setInitializing] = useState(true);
@@ -713,8 +860,22 @@ export default function App() {
   const loadFinanceData = useCallback(async () => {
     setSyncStatus("Syncing...");
     const t = Date.now();
+    
+    const token = getAuthToken();
+    const apiBase = import.meta.env.VITE_API_BASE_URL || '/finance-app/api';
+
+    const archivesPromise = fetch(`${apiBase}/monthly/index.php?_t=${t}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      }
+    }).then(res => {
+      if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+      return res.json();
+    });
 
     const [
+<<<<<<< HEAD
       accountsResponse,
       transactionsResponse,
       loansResponse,
@@ -722,6 +883,15 @@ export default function App() {
       savingsResponse,
       periodsResponse,
     ] = await Promise.all([
+=======
+      accountsRes,
+      transactionsRes,
+      loansRes,
+      categoriesRes,
+      savingsRes,
+      archivesRes,
+    ] = await Promise.allSettled([
+>>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
       api.get<{ accounts: AccountData[] }>(`accounts/index.php?_t=${t}`),
       api.get<{ transactions: TransactionData[] }>(
         `transactions/index.php?_t=${t}`,
@@ -729,6 +899,7 @@ export default function App() {
       api.get<{ loans: LoanData[] }>(`loans/index.php?_t=${t}`),
       api.get<{ categories: CategoryData[] }>(`categories/index.php?_t=${t}`),
       api.get<{ savings: SavingsData[] }>(`savings/index.php?_t=${t}`),
+<<<<<<< HEAD
       api.get<{ active: FinancialPeriod | null; archived: FinancialPeriod[]; monthly_summaries?: MonthlySummary[] }>(
         `periods/index.php?_t=${t}`,
       ),
@@ -742,6 +913,38 @@ export default function App() {
     setActivePeriod(periodsResponse.data.active);
     setArchivedPeriods(periodsResponse.data.archived);
     setMonthlySummaries(periodsResponse.data.monthly_summaries ?? []);
+=======
+      archivesPromise,
+    ]);
+
+    if (accountsRes.status === "fulfilled") setAccounts(accountsRes.value.data.accounts || []);
+    if (transactionsRes.status === "fulfilled") setTransactions(transactionsRes.value.data.transactions || []);
+    if (loansRes.status === "fulfilled") setLoans(loansRes.value.data.loans || []);
+    if (categoriesRes.status === "fulfilled") setCategories(categoriesRes.value.data.categories || []);
+    if (savingsRes.status === "fulfilled") setSavings(savingsRes.value.data.savings || []);
+    
+    if (archivesRes.status === "fulfilled") {
+      try {
+        const payload = archivesRes.value; 
+        
+        let list: any = [];
+        if (Array.isArray(payload)) list = payload;
+        else if (Array.isArray(payload?.data)) list = payload.data;
+        else if (Array.isArray(payload?.archives)) list = payload.archives;
+        else if (Array.isArray(payload?.summaries)) list = payload.summaries;
+        
+        setArchives(list);
+        setArchiveDebug("OK");
+      } catch (e) {
+        setArchives([]);
+        setArchiveDebug("Extraction error: " + (e as Error).message);
+      }
+    } else {
+      setArchives([]);
+      setArchiveDebug("Native Fetch Rejected: " + String(archivesRes.reason));
+    }
+
+>>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
     setSyncStatus("API Synced");
     setIsError(false);
   }, []);
@@ -841,6 +1044,7 @@ export default function App() {
       setLoans([]);
       setCategories([]);
       setSavings([]);
+      setArchives([]);
       setSyncStatus("Session expired");
       setIsError(true);
     };
@@ -915,6 +1119,23 @@ export default function App() {
     }
   };
 
+  const unarchiveMonth = async (id: number) => {
+    const oldArchives = archives;
+    setArchives((items) => items.filter((item) => item.id !== id));
+    try {
+      await api.delete(`monthly/delete.php?id=${id}`);
+    } catch (error) {
+      const msg = errorMessage(error);
+      if (!msg.toLowerCase().includes("success")) {
+        setArchives(oldArchives);
+        setIsError(true);
+        setSyncStatus("API Error");
+        return;
+      }
+    }
+    await loadFinanceData();
+  };
+
   const addTransaction = async (data: {
     amount: number;
     type: string;
@@ -959,6 +1180,18 @@ export default function App() {
       to_account_id: data.toAccountId,
       amount: data.amount,
     });
+    await loadFinanceData();
+  };
+
+  const closeMonth = async (data: { year: number; month: number; notes: string }) => {
+    try {
+      await api.post("monthly/close.php", data);
+    } catch (error) {
+      const msg = errorMessage(error);
+      if (!msg.toLowerCase().includes("success")) {
+        throw error; 
+      }
+    }
     await loadFinanceData();
   };
 
@@ -1155,7 +1388,7 @@ export default function App() {
                   : Landmark;
 
             return (
-              <div className="account-card" key={account.id}>
+              <div className="account-card glass-surface" key={account.id}>
                 <div className={`account-icon ${account.type}`}>
                   <Icon size={20} />
                 </div>
@@ -1180,8 +1413,13 @@ export default function App() {
           </button>
         </div>
 
+<<<<<<< HEAD
         <div className="transaction-card">
           {periodTransactions.slice(0, 5).map((tx, index) => (
+=======
+        <div className="transaction-card glass-surface">
+          {transactions.slice(0, 5).map((tx, index) => (
+>>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
             <SwipeableItem
               key={tx.id}
               onDelete={() => deleteTransaction(tx.id)}
@@ -1266,9 +1504,9 @@ export default function App() {
             <SwipeableItem
               key={account.id}
               onDelete={() => deleteAccount(account.id)}
-              className="rounded-3xl border border-zinc-100 shadow-sm"
+              className="rounded-3xl shadow-sm"
             >
-              <div className="account-list-card">
+              <div className="account-list-card glass-surface rounded-2xl">
                 <div className={`account-icon ${account.type}`}>
                   <Icon size={21} />
                 </div>
@@ -1287,6 +1525,7 @@ export default function App() {
 
   const renderHistory = () => (
     <div className="page-content">
+<<<<<<< HEAD
       <div className="subheader-block">
         <h2>History</h2>
         <p>All activity remains available here, including archived months.</p>
@@ -1356,7 +1595,136 @@ export default function App() {
               </div>
             </SwipeableItem>
           ))}
+=======
+      <div className="subheader-row">
+        <p>Ledger & Monthly Archives</p>
+        <button
+          className="plans-add-button"
+          onClick={() => setCloseMonthModalOpen(true)}
+        >
+          <Archive size={15} />
+          Close Month
+        </button>
       </div>
+
+      <div className="plans-segmented glass-surface">
+        <button
+          className={historyTab === "transactions" ? "active" : ""}
+          onClick={() => setHistoryTab("transactions")}
+        >
+          <History size={15} />
+          Transactions
+        </button>
+        <button
+          className={historyTab === "archives" ? "active" : ""}
+          onClick={() => setHistoryTab("archives")}
+        >
+          <Archive size={15} />
+          Archives
+        </button>
+>>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
+      </div>
+
+      {historyTab === "transactions" ? (
+        <div className="transaction-card glass-surface">
+          {transactions.map((tx, index) => (
+            <SwipeableItem
+              key={tx.id}
+              onDelete={() => deleteTransaction(tx.id)}
+              className={index ? "transaction-divider" : ""}
+            >
+              <div className="transaction-row">
+                <div
+                  className={`transaction-icon ${
+                    tx.type === "expense" ? "expense" : "income"
+                  }`}
+                >
+                  {tx.type === "expense" ? (
+                    <TrendingDown size={18} />
+                  ) : (
+                    <TrendingUp size={18} />
+                  )}
+                </div>
+                <div className="transaction-info">
+                  <strong>{tx.desc || "Transaction"}</strong>
+                  <span>
+                    {tx.account} · {tx.category} · {formatDate(tx.date)}
+                  </span>
+                </div>
+                <strong
+                  className={`transaction-amount ${
+                    tx.type === "expense" ? "expense" : "income"
+                  }`}
+                >
+                  {tx.type === "expense" ? "-" : "+"}
+                  {formatMMK(tx.amount)}
+                </strong>
+              </div>
+            </SwipeableItem>
+          ))}
+          {!transactions.length && (
+            <div className="empty-state">No transactions recorded yet.</div>
+          )}
+        </div>
+      ) : (
+        <div className="stack-list">
+          {archives.map((archive) => (
+            <SwipeableItem
+              key={archive.id}
+              onDelete={() => unarchiveMonth(archive.id)}
+              className="rounded-3xl shadow-sm"
+            >
+              <div className="glass-surface p-4 relative rounded-2xl">
+                
+                {/* Visible Unarchive Button directly on the card */}
+                <button
+                  onClick={() => unarchiveMonth(archive.id)}
+                  className="absolute top-4 right-4 text-red-400 hover:text-red-600 p-1 bg-red-50/50 rounded-md transition-transform active:scale-95"
+                  title="Unarchive Month"
+                >
+                  <Trash2 size={16} />
+                </button>
+
+                <div className="flex justify-between items-start mb-3 border-b border-gray-200/50 pb-3 pr-8">
+                  <div>
+                    <strong className="text-sm font-bold block">{archive.year} - Month {archive.month}</strong>
+                    {archive.notes && <span className="text-xs text-gray-500 mt-1 block">{archive.notes}</span>}
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-gray-400 block uppercase font-bold tracking-wider mb-1">Net Savings</span>
+                    <strong className={`text-sm ${Number(archive.net_savings) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {Number(archive.net_savings) >= 0 ? '+' : ''}{formatMMK(Number(archive.net_savings))}
+                    </strong>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-emerald-50/60 rounded-xl p-3 border border-emerald-100/50">
+                    <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block mb-1">Income</span>
+                    <strong className="text-emerald-700 text-xs">{formatMMK(Number(archive.total_income))}</strong>
+                  </div>
+                  <div className="bg-red-50/60 rounded-xl p-3 border border-red-100/50">
+                    <span className="text-[10px] font-bold text-red-800 uppercase tracking-wider block mb-1">Expense</span>
+                    <strong className="text-red-700 text-xs">{formatMMK(Number(archive.total_expense))}</strong>
+                  </div>
+                </div>
+              </div>
+            </SwipeableItem>
+          ))}
+          {!archives.length && (
+            <div className="empty-state">
+              <p className="mb-2">No months have been closed yet.</p>
+              
+              {archiveDebug !== "OK" && archiveDebug !== "" && (
+                <div className="mt-4 p-3 bg-red-50/80 border border-red-200 rounded-lg text-left">
+                  <p className="text-[10px] font-bold text-red-800 uppercase tracking-wider mb-1">Debug Output:</p>
+                  <p className="text-[10px] text-red-600 font-mono break-all">{archiveDebug}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -1536,7 +1904,7 @@ export default function App() {
         </button>
       </div>
 
-      <div className="plans-segmented">
+      <div className="plans-segmented glass-surface">
         <button
           className={planTab === "loans" ? "active" : ""}
           onClick={() => setPlanTab("loans")}
@@ -1571,9 +1939,9 @@ export default function App() {
               <SwipeableItem
                 key={loan.id}
                 onDelete={() => deleteLoan(loan.id)}
-                className="rounded-3xl border border-zinc-100 shadow-sm"
+                className="rounded-3xl shadow-sm"
               >
-                <div className="plan-card">
+                <div className="plan-card glass-surface rounded-2xl">
                   <div className="plan-card-top">
                     <div>
                       <strong>{loan.name}</strong>
@@ -1634,9 +2002,9 @@ export default function App() {
               <SwipeableItem
                 key={saving.id}
                 onDelete={() => deleteSaving(saving.id)}
-                className="rounded-3xl border border-zinc-100 shadow-sm"
+                className="rounded-3xl shadow-sm"
               >
-                <div className="plan-card">
+                <div className="plan-card glass-surface rounded-2xl">
                   <div className="plan-card-top">
                     <div className="saving-title">
                       <div className="saving-icon">
@@ -1695,9 +2063,20 @@ export default function App() {
 
   if (initializing) {
     return (
+<<<<<<< HEAD
       <div className={`app-outer${darkMode ? " dark" : ""}`}>
         <div className="app-shell loading-shell">
           <RefreshCw className="animate-spin text-blue-600" size={28} />
+=======
+      <div className="app-outer">
+        <div className="liquid-background">
+          <div className="blob blob-purple"></div>
+          <div className="blob blob-cyan"></div>
+          <div className="blob blob-red"></div>
+        </div>
+        <div className="app-shell loading-shell glass-surface">
+          <RefreshCw className="animate-spin text-indigo-600" size={28} />
+>>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
           <span>{syncStatus}</span>
         </div>
       </div>
@@ -1730,6 +2109,7 @@ export default function App() {
     accountModal ||
     loanModal ||
     savingsModal ||
+<<<<<<< HEAD
     periodModal;
 
   return (
@@ -1737,6 +2117,18 @@ export default function App() {
       <div
         className={`app-shell finance-app-shell ios-surface${darkMode ? " dark" : ""}`}
       >
+=======
+    closeMonthModalOpen;
+
+  return (
+    <div className="app-outer">
+      <div className="liquid-background">
+        <div className="blob blob-purple"></div>
+        <div className="blob blob-cyan"></div>
+        <div className="blob blob-red"></div>
+      </div>
+      <div className="app-shell finance-app-shell glass-surface">
+>>>>>>> 6d68a50c81a15933e96267b7c8a9678d4957e3a5
         <TopBar
           title={title}
           syncStatus={syncStatus}
@@ -2118,6 +2510,12 @@ export default function App() {
             </form>
           </Sheet>
         )}
+
+        <CloseMonthModal
+          open={closeMonthModalOpen}
+          onClose={() => setCloseMonthModalOpen(false)}
+          onCloseMonth={closeMonth}
+        />
       </div>
     </div>
   );
