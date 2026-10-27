@@ -338,7 +338,7 @@ const Sheet = ({
 
   return (
     <div
-      className="fixed inset-0 z-[80] bg-slate-950/50 backdrop-blur-sm flex items-end justify-center"
+      className="fixed inset-0 z-[80] bg-slate-950/45 backdrop-blur-md flex items-end justify-center transition-opacity"
       role="dialog"
       aria-modal="true"
       onMouseDown={(e) => {
