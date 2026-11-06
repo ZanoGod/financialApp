@@ -49,6 +49,7 @@ DB_DATABASE=cpaneluser_finance_app
 DB_USERNAME=cpaneluser_finance_user
 DB_PASSWORD=your_database_password
 DB_CHARSET=utf8mb4
+APP_TIMEZONE=Asia/Yangon
 
 JWT_SECRET=replace-with-a-long-random-secret
 JWT_ISSUER=personal-finance-api
@@ -69,6 +70,10 @@ php -r "echo password_hash('2468', PASSWORD_DEFAULT);"
 ```
 
 Put the output in `APP_PIN_HASH`. Leave `APP_PIN` empty when using the hash.
+
+Financial dates use `APP_TIMEZONE` (default `Asia/Yangon`), independently of the
+hosting server's timezone. A new period can start on the day the previous period
+closed; archived transactions stay assigned to their original period.
 
 ## 3. Build The Frontend
 

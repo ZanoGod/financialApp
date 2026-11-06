@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/finance-app',
+  base: '/finance-app/',
   publicDir: 'public',
 })
 

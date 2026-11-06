@@ -8,6 +8,10 @@ require_once __DIR__ . '/../config/env.php';
 require_once __DIR__ . '/../config/database.php';
 
 loadEnvFile(__DIR__ . '/../.env');
+
+// Financial dates follow the user's local day, independently of hosting defaults.
+date_default_timezone_set(getenv('APP_TIMEZONE') ?: 'Asia/Yangon');
+
 require_once __DIR__ . '/../middleware/cors.php';
 
 spl_autoload_register(static function (string $className): void {

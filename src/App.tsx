@@ -714,9 +714,13 @@ export default function App() {
   const [recordsTab, setRecordsTab] = useState<"history" | "archive">(
     "history",
   );
-  const [darkMode, setDarkMode] = useState(
-    () => localStorage.getItem("finance_theme") === "dark",
-  );
+  const [darkMode, setDarkMode] = useState(() => {
+    try {
+      return localStorage.getItem("finance_theme") === "dark";
+    } catch {
+      return false;
+    }
+  });
   const [accounts, setAccounts] = useState<AccountData[]>([]);
   const [transactions, setTransactions] = useState<TransactionData[]>([]);
   const [loans, setLoans] = useState<LoanData[]>([]);
@@ -820,7 +824,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("finance_theme", darkMode ? "dark" : "light");
+    try {
+      localStorage.setItem("finance_theme", darkMode ? "dark" : "light");
+    } catch {
+      // Theme persistence is optional; keep the app usable if storage is blocked.
+    }
     document.querySelector(".ios-surface")?.classList.toggle("dark", darkMode);
     document.querySelector(".app-outer")?.classList.toggle("dark", darkMode);
     document.documentElement.classList.toggle("dark", darkMode);
@@ -876,7 +884,14 @@ export default function App() {
 
   useEffect(() => {
     const boot = async () => {
-      if (!getAuthToken()) {
+      let token: string | null = null;
+      try {
+        token = getAuthToken();
+      } catch {
+        clearAuthToken();
+      }
+
+      if (!token) {
         setSyncStatus("PIN required");
         setInitializing(false);
         return;
@@ -886,7 +901,11 @@ export default function App() {
         await loadFinanceData();
         setUnlocked(true);
       } catch {
-        clearAuthToken();
+        try {
+          clearAuthToken();
+        } catch {
+          // Continue to the PIN screen even when browser storage is unavailable.
+        }
         setSyncStatus("PIN required");
       } finally {
         setInitializing(false);

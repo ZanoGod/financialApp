@@ -11,7 +11,10 @@ try {
  $lock=$db->query("SELECT GET_LOCK('finance_active_period',5)")->fetchColumn(); if((int)$lock!==1) Response::error('Could not safely start the period. Please retry.',409);
  $db->beginTransaction();
  $active=$db->query("SELECT id FROM financial_periods WHERE status='active' LIMIT 1")->fetch(); if($active) Response::error('Close the active period before starting another.',409);
- $s=$db->prepare("SELECT id FROM financial_periods WHERE start_date <= :new_end AND COALESCE(end_date,'9999-12-31') >= :new_start LIMIT 1"); $s->execute(['new_end'=>$date,'new_start'=>$date]); if($s->fetch()) Response::error('The selected date overlaps an existing period.',409);
+ // Period membership is determined by transactions.period_id. A closing day
+ // can also be the next period's starting day, without moving archived entries.
+ // The new period is open-ended, so it must follow every existing period.
+ $s=$db->prepare("SELECT id FROM financial_periods WHERE COALESCE(end_date,'9999-12-31') > :new_start LIMIT 1"); $s->execute(['new_start'=>$date]); if($s->fetch()) Response::error('Start date must be on or after the latest period closing date.',409);
  $s=$db->prepare("INSERT INTO financial_periods(name,start_date,status) VALUES(:name,:start,'active')"); $s->execute(['name'=>$name,'start'=>$date]); $id=(int)$db->lastInsertId(); $db->commit();
  Response::success('Financial period started.',['period'=>['id'=>$id,'name'=>$name,'start_date'=>$date,'end_date'=>null,'status'=>'active']],201);
 } catch(Throwable $e) { if($db->inTransaction()) $db->rollBack(); throw $e; }
