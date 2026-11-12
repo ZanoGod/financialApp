@@ -270,6 +270,88 @@ const TopBar = ({
   </header>
 );
 
+const DashboardSkeletonContent = () => (
+  <div className="dashboard-skeleton-content" aria-hidden="true">
+    <section className="skeleton-balance-card" style={{ "--skeleton-delay": "0ms" } as React.CSSProperties}>
+      <span className="skeleton-block skeleton-label" />
+      <span className="skeleton-block skeleton-balance-value" />
+      <div className="skeleton-balance-stats">
+        <span className="skeleton-block skeleton-stat" />
+        <span className="skeleton-block skeleton-stat" />
+      </div>
+    </section>
+
+    <section className="skeleton-section" style={{ "--skeleton-delay": "70ms" } as React.CSSProperties}>
+      <div className="skeleton-section-heading">
+        <span className="skeleton-block skeleton-heading" />
+        <span className="skeleton-block skeleton-link" />
+      </div>
+      <div className="skeleton-account-row">
+        {[0, 1, 2].map((item) => (
+          <div className="skeleton-account-card" key={item}>
+            <span className="skeleton-block skeleton-account-icon" />
+            <span className="skeleton-block skeleton-account-name" />
+            <span className="skeleton-block skeleton-account-amount" />
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section className="skeleton-section skeleton-transactions" style={{ "--skeleton-delay": "140ms" } as React.CSSProperties}>
+      <div className="skeleton-section-heading">
+        <span className="skeleton-block skeleton-heading" />
+        <span className="skeleton-block skeleton-link" />
+      </div>
+      <div className="skeleton-transaction-card">
+        {[0, 1, 2, 3].map((item) => (
+          <div className="skeleton-transaction-row" key={item}>
+            <span className="skeleton-block skeleton-transaction-icon" />
+            <span className="skeleton-transaction-copy">
+              <span className="skeleton-block skeleton-transaction-title" />
+              <span className="skeleton-block skeleton-transaction-subtitle" />
+            </span>
+            <span className="skeleton-block skeleton-transaction-amount" />
+          </div>
+        ))}
+      </div>
+    </section>
+  </div>
+);
+
+const DashboardSkeleton = ({ darkMode }: { darkMode: boolean }) => (
+  <div className={`app-outer${darkMode ? " dark" : ""}`}>
+    <div
+      className={`app-shell finance-app-shell ios-surface loading-dashboard${darkMode ? " dark" : ""}`}
+      role="status"
+      aria-label="Loading your finance dashboard"
+      aria-busy="true"
+    >
+      <span className="visually-hidden">Loading your finance dashboard</span>
+      <header className="app-topbar skeleton-topbar" aria-hidden="true">
+        <span className="skeleton-block skeleton-title" />
+        <div className="skeleton-topbar-actions">
+          <span className="skeleton-block skeleton-action" />
+          <span className="skeleton-block skeleton-action" />
+          <span className="skeleton-block skeleton-action" />
+        </div>
+      </header>
+
+      <main className="app-scroll hide-scrollbar">
+        <DashboardSkeletonContent />
+      </main>
+
+      <div className="skeleton-bottom-nav" aria-hidden="true">
+        {[0, 1, 2, 3].map((item) => (
+          <span className="skeleton-nav-item" key={item}>
+            <span className="skeleton-block skeleton-nav-icon" />
+            <span className="skeleton-block skeleton-nav-label" />
+          </span>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
 const BottomNav = ({
   activeTab,
   setActiveTab,
@@ -1877,14 +1959,7 @@ export default function App() {
   );
 
   if (initializing) {
-    return (
-      <div className={`app-outer${darkMode ? " dark" : ""}`}>
-        <div className="app-shell loading-shell">
-          <RefreshCw className="animate-spin text-blue-600" size={28} />
-          <span>{syncStatus}</span>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton darkMode={darkMode} />;
   }
 
   if (!unlocked) {
@@ -1935,7 +2010,10 @@ export default function App() {
           }
         />
 
-        <main className="app-scroll hide-scrollbar">
+        <main
+          className="app-scroll hide-scrollbar"
+          aria-busy={syncStatus === "Syncing..."}
+        >
           {!online && (
             <div className="offline-banner">
               Offline · financial changes require a connection
@@ -1955,36 +2033,47 @@ export default function App() {
               Install MyFinanceApp
             </button>
           )}
-          {activeTab === "home" && renderHome()}
-          {activeTab === "accounts" && renderAccounts()}
-          {activeTab === "records" && (
-            <div className="records-page">
-              <div className="plans-segmented records-segmented">
-                <button
-                  className={recordsTab === "history" ? "active" : ""}
-                  onClick={() => {
-                    setRecordsTab("history");
-                    setSelectedPeriod(null);
-                    setSelectedMonthlySummary(null);
-                  }}
-                >
-                  History
-                </button>
-                <button
-                  className={recordsTab === "archive" ? "active" : ""}
-                  onClick={() => {
-                    setRecordsTab("archive");
-                    setSelectedPeriod(null);
-                    setSelectedMonthlySummary(null);
-                  }}
-                >
-                  Archive
-                </button>
-              </div>
-              {recordsTab === "history" ? renderHistory() : renderArchive()}
+          {syncStatus === "Syncing..." ? (
+            <div className="manual-sync-skeleton">
+              <span className="visually-hidden" role="status">
+                Syncing your finance dashboard
+              </span>
+              <DashboardSkeletonContent />
             </div>
+          ) : (
+            <>
+              {activeTab === "home" && renderHome()}
+              {activeTab === "accounts" && renderAccounts()}
+              {activeTab === "records" && (
+                <div className="records-page">
+                  <div className="plans-segmented records-segmented">
+                    <button
+                      className={recordsTab === "history" ? "active" : ""}
+                      onClick={() => {
+                        setRecordsTab("history");
+                        setSelectedPeriod(null);
+                        setSelectedMonthlySummary(null);
+                      }}
+                    >
+                      History
+                    </button>
+                    <button
+                      className={recordsTab === "archive" ? "active" : ""}
+                      onClick={() => {
+                        setRecordsTab("archive");
+                        setSelectedPeriod(null);
+                        setSelectedMonthlySummary(null);
+                      }}
+                    >
+                      Archive
+                    </button>
+                  </div>
+                  {recordsTab === "history" ? renderHistory() : renderArchive()}
+                </div>
+              )}
+              {activeTab === "budgets" && renderPlans()}
+            </>
           )}
-          {activeTab === "budgets" && renderPlans()}
         </main>
 
         {!anyModal && (

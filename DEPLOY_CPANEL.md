@@ -99,6 +99,19 @@ public_html/finance-app/
 The `public/.htaccess` file is copied into `dist/` during build and allows the
 React app to reload correctly on shared hosting.
 
+Set `VITE_API_BASE_URL` to the API's public URL. For the layout above
+(`public_html/api`), use `/api`; if the API is instead uploaded under
+`public_html/finance-app/api`, use `/finance-app/api`. The value is embedded
+when the frontend is built, so rebuild and re-upload `dist/` after changing it.
+
+Some shared-hosting security layers return a `humans_####=1` JavaScript cookie
+challenge to API calls, especially from VPN or proxy IP addresses. The app now
+handles that exact challenge and retries once. If the host continues to return
+a security page, contact the hosting provider and ask them to exempt the
+finance API endpoints from the JavaScript/ModSecurity challenge for legitimate
+VPN traffic. This challenge is generated before PHP runs and cannot be fixed in
+the API code itself.
+
 ## 4. PHP Version
 
 In cPanel **MultiPHP Manager** or **Select PHP Version**, use PHP 8.2 or newer.

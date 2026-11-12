@@ -22,6 +22,25 @@ type RequestBody = Record<string, unknown> | FormData | undefined;
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 const TOKEN_KEY = "finance_app_token";
 const TOKEN_EXPIRES_AT_KEY = "finance_app_token_expires_at";
+const HUMAN_CHECK_PATTERN = /<script>\s*document\.cookie\s*=\s*["'](humans_\d+=1)["'];\s*document\.location\.reload\(true\)\s*<\/script>/i;
+
+const fetchApiResponse = async (url: string, init: RequestInit) => {
+  let response = await fetch(url, init);
+  let body = await response.text();
+  const challenge = body.match(HUMAN_CHECK_PATTERN);
+
+  // Shared hosts can return a small JavaScript cookie challenge instead of
+  // JSON. Reproduce only that exact, non-executable cookie assignment, then
+  // retry once so fetch requests behave like a normal browser page reload.
+  if (challenge) {
+    const secure = window.location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = `${challenge[1]}; Path=/; SameSite=Lax${secure}`;
+    response = await fetch(url, init);
+    body = await response.text();
+  }
+
+  return { response, body };
+};
 
 export const clearAuthToken = () => {
   try {
@@ -90,12 +109,19 @@ const request = async <T>(
     init.body = JSON.stringify(body);
   }
 
-  const response = await fetch(buildUrl(endpoint), init);
-  const payload = (await response.json().catch(() => ({
-    success: false,
-    message: "Invalid server response.",
-    data: {},
-  }))) as ApiResponse<T>;
+  const { response, body: responseBody } = await fetchApiResponse(buildUrl(endpoint), init);
+  let payload: ApiResponse<T>;
+  try {
+    payload = JSON.parse(responseBody) as ApiResponse<T>;
+  } catch {
+    const isAccessCheck = /humans_\d+=1|access denied|security check/i.test(responseBody);
+    throw new ApiError(
+      isAccessCheck
+        ? "The hosting security check blocked this request. Please retry; if it continues, ask your hosting provider to allow the finance API for VPN connections."
+        : "The server returned an unexpected response. Please try again.",
+      response.status,
+    );
+  }
 
   if (response.status === 401) {
     clearAuthToken();
@@ -145,15 +171,15 @@ export const closeMonthArchive = async (year: number, month: number, notes?: str
   const token = getAuthToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const response = await fetch(buildUrl("monthly/close.php"), {
+  const { body } = await fetchApiResponse(buildUrl("monthly/close.php"), {
     method: "POST",
     headers,
     body: JSON.stringify({ year, month, notes }),
   });
-  return response.json();
+  return JSON.parse(body);
 };
 
 export const getMonthlyArchives = async (): Promise<{ status: string; data: MonthlySummaryData[] }> => {
-  const response = await fetch(buildUrl("monthly/index.php"));
-  return response.json();
+  const { body } = await fetchApiResponse(buildUrl("monthly/index.php"), {});
+  return JSON.parse(body);
 };
